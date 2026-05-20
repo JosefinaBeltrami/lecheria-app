@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lechería · Hogar de la Solidaridad</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F5F0;--surface:#FFFFFF;--surface2:#F0EDE6;--border:#E2DDD5;--border2:#CCC7BD;
+  --text:#1C1A16;--text2:#6B6760;--text3:#A09C95;
+  --green:#2D6A4F;--green-l:#D8F3DC;--green-t:#1B4332;
+  --orange:#D4620A;--orange-l:#FEF0E3;--orange-t:#7A3508;
+  --red:#B91C1C;--red-l:#FEE2E2;--red-t:#7F1D1D;
+  --blue:#1D4ED8;--blue-l:#EFF6FF;--blue-t:#1E3A8A;
+  --teal:#0F766E;--teal-l:#CCFBF1;--teal-t:#134E4A;
+  --purple:#7C3AED;--purple-l:#F3E8FF;--purple-t:#581C87;
+  --r:10px;--rs:7px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;}
+
+/* AUTH */
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:400px;max-width:95vw;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-logo .serif{font-family:'Instrument Serif',serif;font-size:26px;color:var(--text);}
+.auth-logo .sub{font-size:13px;color:var(--text3);margin-top:4px;}
+.auth-logo .leaf{color:var(--green);font-size:28px;}
+.auth-tabs{display:flex;background:var(--surface2);border-radius:var(--rs);padding:3px;margin-bottom:24px;}
+.auth-tab{flex:1;text-align:center;padding:7px;border-radius:5px;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;}
+.auth-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+.form-row{margin-bottom:14px;}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.form-input{width:100%;border:1px solid var(--border);border-radius:var(--rs);padding:9px 12px;font-family:inherit;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:var(--green);background:#fff;}
+.btn-primary{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px;}
+.btn-primary:hover{background:#235A40;}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;}
+.auth-error{background:var(--red-l);color:var(--red-t);border:1px solid #FECACA;border-radius:var(--rs);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+
+/* APP LAYOUT */
+#app-screen{display:none;height:100vh;flex-direction:column;}
+#app-screen.visible{display:flex;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:54px;gap:8px;flex-shrink:0;}
+.topbar-logo{font-family:'Instrument Serif',serif;font-size:20px;color:var(--text);display:flex;align-items:center;gap:8px;margin-right:8px;}
+.topbar-logo span{color:var(--green);}
+.topbar-nav{display:flex;gap:2px;flex:1;flex-wrap:wrap;}
+.nav-btn{padding:6px 13px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);border:none;background:none;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.nav-btn:hover{background:var(--surface2);color:var(--text);}
+.nav-btn.active{background:var(--green-l);color:var(--green-t);}
+.nav-btn[data-admin]{background:var(--purple-l);color:var(--purple-t);}
+.nav-btn[data-admin].active{background:var(--purple);color:#fff;}
+.topbar-user{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:99px;padding:5px 12px 5px 6px;}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;}
+.user-name{font-size:13px;font-weight:500;color:var(--text);}
+.role-badge{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;}
+.role-admin{background:var(--purple-l);color:var(--purple-t);}
+.role-usuario{background:var(--green-l);color:var(--green-t);}
+.role-lectura{background:var(--surface2);color:var(--text2);}
+.btn-logout{font-size:13px;color:var(--text3);cursor:pointer;background:none;border:none;font-family:inherit;padding:4px 8px;border-radius:var(--rs);}
+.btn-logout:hover{color:var(--red);background:var(--red-l);}
+
+.app-body{flex:1;overflow-y:auto;padding:28px 32px;}
+.page{display:none;}
+.page.active{display:block;}
+.page-hdr{margin-bottom:22px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.page-hdr-text .page-title{font-family:'Instrument Serif',serif;font-size:26px;color:var(--text);}
+.page-hdr-text .page-sub{font-size:14px;color:var(--text2);margin-top:2px;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;}
+.stat.accent{background:var(--green);border-color:var(--green);}
+.stat.teal{background:var(--teal);border-color:var(--teal);}
+.stat.purple{background:var(--purple);border-color:var(--purple);}
+.stat-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px;}
+.stat.accent .stat-lbl,.stat.teal .stat-lbl,.stat.purple .stat-lbl{color:rgba(255,255,255,.65);}
+.stat-val{font-size:28px;font-weight:600;color:var(--text);line-height:1;}
+.stat.accent .stat-val,.stat.teal .stat-val,.stat.purple .stat-val{color:#fff;}
+.stat-sub{font-size:12px;color:var(--text2);margin-top:4px;}
+.stat.accent .stat-sub,.stat.teal .stat-sub,.stat.purple .stat-sub{color:rgba(255,255,255,.65);}
+.stat.warn .stat-val{color:var(--orange);}
+.stat.danger .stat-val{color:var(--red);}
+
+/* TABLES */
+.tbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:20px;}
+.tbox-toolbar{display:flex;align-items:center;gap:8px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tbox-title{font-size:15px;font-weight:600;flex:1;min-width:100px;}
+input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],select{border:1px solid var(--border);border-radius:var(--rs);padding:7px 11px;font-family:inherit;font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border-color .15s;}
+input:focus,select:focus{border-color:var(--green);background:#fff;}
+input::placeholder{color:var(--text3);}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--rs);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--surface2);}
+.btn.green{background:var(--green);color:#fff;border-color:var(--green);}
+.btn.green:hover{background:#235A40;}
+.btn.teal{background:var(--teal);color:#fff;border-color:var(--teal);}
+.btn.teal:hover{background:var(--teal-t);}
+.btn.purple{background:var(--purple);color:#fff;border-color:var(--purple);}
+.btn.purple:hover{background:var(--purple-t);}
+.btn.orange{background:var(--orange);color:#fff;border-color:var(--orange);}
+.btn.sm{padding:4px 10px;font-size:12px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th{text-align:left;padding:9px 16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;background:var(--bg);border-bottom:1px solid var(--border);}
+td{padding:10px 16px;border-bottom:1px solid var(--surface2);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#FAFAF7;}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:500;}
+.b-green{background:var(--green-l);color:var(--green-t);}
+.b-orange{background:var(--orange-l);color:var(--orange-t);}
+.b-red{background:var(--red-l);color:var(--red-t);}
+.b-blue{background:var(--blue-l);color:var(--blue-t);}
+.b-teal{background:var(--teal-l);color:var(--teal-t);}
+.b-gray{background:var(--surface2);color:var(--text2);}
+.b-yellow{background:#FEF9C3;color:#713F12;}
+.b-purple{background:var(--purple-l);color:var(--purple-t);}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
+.dot-g{background:#16A34A;}.dot-o{background:var(--orange);}.dot-r{background:var(--red);}
+
+/* PAGER */
+.pager{display:flex;align-items:center;gap:6px;padding:11px 18px;border-top:1px solid var(--border);font-size:13px;color:var(--text2);}
+.pager .info{flex:1;}
+.pb{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);border:1px solid var(--border);cursor:pointer;font-size:13px;background:var(--surface);}
+.pb:hover{background:var(--surface2);}
+.pb.on{background:var(--green);color:#fff;border-color:var(--green);}
+.pb.off{opacity:.35;pointer-events:none;}
+
+/* MODALS */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border-radius:14px;padding:28px 28px 24px;width:540px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.12);transform:translateY(10px);transition:transform .2s;max-height:90vh;overflow-y:auto;}
+.modal.wide{width:700px;}
+.overlay.open .modal{transform:translateY(0);}
+.modal-title{font-family:'Instrument Serif',serif;font-size:20px;margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;}
+
+/* MISC */
+.tipo-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.tipo-tab{padding:7px 14px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;}
+.tipo-tab:hover{background:var(--surface2);}
+.tipo-tab.on{border-color:var(--green);background:var(--green-l);color:var(--green-t);}
+.alert{display:flex;gap:10px;padding:11px 15px;border-radius:var(--rs);margin-bottom:14px;font-size:14px;}
+.alert-danger{background:var(--red-l);color:var(--red-t);border:1px solid #FCA5A5;}
+.alert-info{background:var(--blue-l);color:var(--blue-t);border:1px solid #BFDBFE;}
+.alert-warn{background:var(--orange-l);color:var(--orange-t);border:1px solid #FED7AA;}
+
+.toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;padding:11px 18px;border-radius:var(--r);font-size:14px;font-weight:500;opacity:0;transform:translateY(6px);transition:all .22s;z-index:9999;pointer-events:none;max-width:340px;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green);}
+.toast.err{background:var(--red);}
+
+.reg-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;}
+.reg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;}
+.stock-info{background:var(--surface2);border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--text2);margin-bottom:14px;}
+.loading{text-align:center;padding:48px;color:var(--text3);font-size:14px;}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* IMPORT */
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2);}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--green);background:var(--green-l);}
+.drop-zone .dz-icon{font-size:32px;margin-bottom:10px;}
+.drop-zone .dz-text{font-size:14px;font-weight:500;color:var(--text2);}
+.drop-zone .dz-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+#file-input{display:none;}
+.preview-wrap{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-top:12px;font-size:13px;}
+.preview-wrap table th{font-size:10px;padding:6px 10px;}
+.preview-wrap table td{padding:6px 10px;}
+
+/* PERÍODO */
+.periodo-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+.periodo-pill{padding:7px 16px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;}
+.periodo-pill:hover{background:var(--surface2);}
+.periodo-pill.on{background:var(--teal);color:#fff;border-color:var(--teal);}
+.periodo-banner{background:var(--teal);color:#fff;border-radius:var(--r);padding:16px 22px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.pb-stat .pb-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;opacity:.7;}
+.pb-stat .pb-val{font-size:17px;font-weight:600;margin-top:2px;}
+.pb-sep{width:1px;background:rgba(255,255,255,.25);height:40px;}
+.periodo-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+
+/* MULTI-SELECT FILTER */
+.ms-wrap{position:relative;display:inline-block;}
+.ms-btn{border:1px solid var(--border);border-radius:var(--rs);padding:7px 11px;font-family:inherit;font-size:14px;color:var(--text);background:var(--bg);cursor:pointer;display:flex;align-items:center;gap:6px;min-width:160px;justify-content:space-between;}
+.ms-btn:hover{border-color:var(--green);background:#fff;}
+.ms-btn.active{border-color:var(--green);background:var(--green-l);color:var(--green-t);}
+.ms-dropdown{position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:200;min-width:200px;max-height:260px;overflow-y:auto;display:none;}
+.ms-dropdown.open{display:block;}
+.ms-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;font-size:14px;transition:background .1s;}
+.ms-item:hover{background:var(--surface2);}
+.ms-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--green);flex-shrink:0;}
+.ms-item label{cursor:pointer;flex:1;}
+.ms-sep{height:1px;background:var(--border);margin:4px 0;}
+
+/* HISTORIAL TOTALES */
+.hist-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;border-top:1px solid var(--border);background:var(--surface2);}
+.hist-total-item{text-align:center;}
+.hist-total-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:4px;}
+.hist-total-val{font-size:18px;font-weight:600;color:var(--text);}
+.hist-total-val.green{color:var(--green);}
+.hist-total-val.blue{color:var(--blue);}
+.hist-total-val.orange{color:var(--orange);}
+
+/* ADMIN PANEL */
+.admin-users-grid{display:flex;flex-direction:column;gap:12px;}
+.admin-user-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:16px;}
+.admin-user-avatar{width:38px;height:38px;border-radius:50%;background:var(--green);color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.admin-user-info{flex:1;}
+.admin-user-name{font-weight:600;font-size:14px;}
+.admin-user-email{font-size:12px;color:var(--text3);margin-top:1px;}
+.role-selector{display:flex;gap:6px;}
+.role-opt{padding:6px 14px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;}
+.role-opt:hover{background:var(--surface2);}
+.role-opt.sel-admin{background:var(--purple);color:#fff;border-color:var(--purple);}
+.role-opt.sel-usuario{background:var(--green);color:#fff;border-color:var(--green);}
+.role-opt.sel-lectura{background:var(--surface2);color:var(--text);border-color:var(--border2);}
+
+/* PRECIOS */
+.precios-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.precio-row-highlight{background:var(--green-l)!important;}
+
+/* CIERRE MENSUAL */
+.cierre-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;}
+.cierre-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;}
+.cierre-card-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+.cierre-card-sub{font-size:13px;color:var(--text2);margin-bottom:16px;}
+.month-selector{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.month-pill{padding:6px 14px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;}
+.month-pill:hover{background:var(--surface2);}
+.month-pill.on{background:var(--orange);color:#fff;border-color:var(--orange);}
+.cierre-preview{border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;max-height:300px;overflow-y:auto;margin-top:12px;}
+.cierre-preview table th{font-size:10px;padding:6px 10px;}
+.cierre-preview table td{padding:7px 10px;font-size:13px;}
+
+/* ACCESO DENEGADO */
+.access-denied{text-align:center;padding:80px 40px;}
+.access-denied .ad-icon{font-size:48px;margin-bottom:16px;}
+.access-denied .ad-title{font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:8px;}
+.access-denied .ad-sub{font-size:14px;color:var(--text2);}
+
+/* PENDING */
+.pending-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+.pending-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:420px;max-width:95vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
+.pending-icon{font-size:42px;margin-bottom:16px;}
+.pending-title{font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:8px;}
+.pending-sub{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
+
+@media(max-width:768px){
+  .topbar-nav{display:none;}
+  .stats-row,.periodo-stats{grid-template-columns:1fr 1fr;}
+  .app-body{padding:16px;}
+  .reg-layout,.cierre-layout{grid-template-columns:1fr;}
+  .hist-totals{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="leaf">🌿</div>
+      <div class="serif">Lechería de la Solidaridad</div>
+      <div class="sub">Sistema de stock</div>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Ingresar</div>
+      <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Registrarse</div>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <div id="form-login">
+      <div class="form-row"><label class="form-label">Correo electrónico</label><input class="form-input" type="email" id="l-email" placeholder="tu@correo.com" autocomplete="email"></div>
+      <div class="form-row"><label class="form-label">Contraseña</label><input class="form-input" type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Ingresar</button>
+    </div>
+    <div id="form-register" style="display:none">
+      <div class="form-row"><label class="form-label">Nombre completo</label><input class="form-input" type="text" id="r-nombre" placeholder="Ej: María González"></div>
+      <div class="form-row"><label class="form-label">Correo electrónico</label><input class="form-input" type="email" id="r-email" placeholder="tu@correo.com"></div>
+      <div class="form-row"><label class="form-label">Contraseña</label><input class="form-input" type="password" id="r-pass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn-primary" id="btn-register" onclick="doRegister()">Crear cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- PENDING -->
+<div id="pending-screen" class="pending-screen" style="display:none">
+  <div class="pending-card">
+    <div class="pending-icon">⏳</div>
+    <div class="pending-title">Cuenta pendiente de activación</div>
+    <div class="pending-sub">Tu cuenta fue creada correctamente. Un administrador debe asignarte un rol antes de que puedas acceder al sistema.<br><br>Contactate con el administrador para que active tu acceso.</div>
+    <button class="btn" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-logo"><span>🌿</span> Lechería</div>
+    <nav class="topbar-nav" id="main-nav">
+      <button class="nav-btn active" onclick="goTo('dashboard',this)">Inicio</button>
+      <button class="nav-btn" onclick="goTo('stock',this)" id="nav-stock">Stock</button>
+      <button class="nav-btn" onclick="goTo('movimiento',this)" id="nav-movimiento">Registrar</button>
+      <button class="nav-btn" onclick="goTo('historial',this)" id="nav-historial">Historial</button>
+      <button class="nav-btn" onclick="goTo('periodo',this)" id="nav-periodo">Período contable</button>
+      <button class="nav-btn" onclick="goTo('productos',this)" id="nav-productos">Productos</button>
+      <button class="nav-btn" onclick="goTo('precios',this)" id="nav-precios">Precios</button>
+      <button class="nav-btn" onclick="goTo('cierre',this)" id="nav-cierre">Cierre mensual</button>
+      <button class="nav-btn" onclick="goTo('admin',this)" id="nav-admin" data-admin style="display:none">⚙ Admin</button>
+    </nav>
+    <div class="topbar-user">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span class="user-name" id="user-name-label">—</span>
+        <span class="role-badge" id="user-role-badge"></span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Panel de control</div><div class="page-sub" id="dash-fecha"></div></div></div>
+      <div id="dash-alerts"></div>
+      <div class="stats-row" id="dash-stats"></div>
+      <div class="tbox">
+        <div class="tbox-toolbar"><span class="tbox-title">Productos con alerta de stock</span></div>
+        <div id="dash-table-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+      </div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="page" id="page-stock">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Stock actual</div><div class="page-sub">Todos los productos y sus cantidades</div></div></div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <input type="text" id="stock-q" placeholder="Buscar producto…" style="width:200px" oninput="renderStock()">
+          <select id="stock-f" onchange="renderStock()"><option value="">Todos</option><option value="con">Con stock</option><option value="sin">Sin stock</option><option value="bajo">Stock bajo</option></select>
+          <button class="btn" onclick="exportCSV('stock')">↓ Exportar</button>
+        </div>
+        <div id="stock-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div class="pager" id="stock-pager"></div>
+      </div>
+    </div>
+
+    <!-- REGISTRAR -->
+    <div class="page" id="page-movimiento">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Registrar movimiento</div><div class="page-sub">Cargá entradas, consumos y salidas</div></div></div>
+      <div class="reg-layout">
+        <div class="reg-card">
+          <div class="form-row">
+            <label class="form-label">Tipo de movimiento</label>
+            <div class="tipo-tabs" id="tipo-tabs">
+              <div class="tipo-tab on" onclick="setTipo('Entrada',this)">📥 Entrada</div>
+              <div class="tipo-tab" onclick="setTipo('Cocina',this)">🍳 Cocina</div>
+              <div class="tipo-tab" onclick="setTipo('Panaderia',this)">🍞 Panadería</div>
+              <div class="tipo-tab" onclick="setTipo('Salida',this)">📤 Salida</div>
+              <div class="tipo-tab" onclick="setTipo('Ajuste',this)">🔧 Ajuste</div>
+            </div>
+          </div>
+          <div class="form-row"><label class="form-label">Producto</label><select id="mov-prod" style="width:100%" onchange="onProdChange()"><option value="">— Seleccioná un producto —</option></select></div>
+          <div class="stock-info" id="stock-info" style="display:none">Stock actual: <strong id="stock-info-val">—</strong></div>
+          <div class="form-grid">
+            <div class="form-row"><label class="form-label">Cantidad</label><input type="number" id="mov-cant" min="0.1" step="0.5" placeholder="0" style="width:100%"></div>
+            <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="mov-fecha" style="width:100%"></div>
+          </div>
+          <div class="form-row"><label class="form-label">Concepto / Origen</label>
+            <select id="mov-conc" style="width:100%"><option>Consumo Interno</option><option>Caritas</option><option>Municipio</option><option>Terceros</option><option>Banco de Alimentos</option><option>Ayuda a la Comunidad</option><option>Fondos Propios</option><option>Empresas</option><option>Ajuste de inventario</option></select>
+          </div>
+          <div class="form-row"><label class="form-label">Precio unitario (opcional)</label><input type="number" id="mov-precio" min="0" step="1" placeholder="0" style="width:100%"></div>
+          <button class="btn green" style="width:100%;justify-content:center;padding:12px;font-size:15px;margin-top:6px" id="btn-guardar" onclick="guardarMovimiento()">✓ Guardar movimiento</button>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px">Últimos movimientos de hoy</div>
+          <div id="mov-recientes"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="page" id="page-historial">
+      <div class="page-hdr">
+        <div class="page-hdr-text"><div class="page-title">Historial</div><div class="page-sub">Todos los movimientos — <span id="hist-count"></span></div></div>
+        <button class="btn teal" onclick="abrirImport()">↑ Importar Excel</button>
+      </div>
+      <div class="tbox">
+        <div class="tbox-toolbar" style="gap:6px">
+          <input type="text" id="hist-q" placeholder="Buscar…" style="width:130px" oninput="histPg=1;renderHistorial()">
+          <!-- Multi-select tipo -->
+          <div class="ms-wrap" id="ms-tipo-wrap">
+            <div class="ms-btn" id="ms-tipo-btn" onclick="toggleMs('ms-tipo')">
+              <span id="ms-tipo-label">Todos los tipos</span><span style="font-size:10px;color:var(--text3)">▼</span>
+            </div>
+            <div class="ms-dropdown" id="ms-tipo-dd">
+              <div class="ms-item"><input type="checkbox" id="mst-all" onchange="msSelectAll('tipo',this)" checked><label for="mst-all">Todos</label></div>
+              <div class="ms-sep"></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Entrada" onchange="msChange('tipo')" checked><label>Entrada</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Salida" onchange="msChange('tipo')" checked><label>Salida</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Cocina" onchange="msChange('tipo')" checked><label>Cocina</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Panaderia" onchange="msChange('tipo')" checked><label>Panadería</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Ajuste" onchange="msChange('tipo')" checked><label>Ajuste</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-tipo-cb" value="Vencidos" onchange="msChange('tipo')" checked><label>Vencidos</label></div>
+            </div>
+          </div>
+          <!-- Multi-select concepto -->
+          <div class="ms-wrap" id="ms-conc-wrap">
+            <div class="ms-btn" id="ms-conc-btn" onclick="toggleMs('ms-conc')">
+              <span id="ms-conc-label">Todos los conceptos</span><span style="font-size:10px;color:var(--text3)">▼</span>
+            </div>
+            <div class="ms-dropdown" id="ms-conc-dd">
+              <div class="ms-item"><input type="checkbox" id="msc-all" onchange="msSelectAll('conc',this)" checked><label for="msc-all">Todos</label></div>
+              <div class="ms-sep"></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Consumo Interno" onchange="msChange('conc')" checked><label>Consumo Interno</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Caritas" onchange="msChange('conc')" checked><label>Caritas</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Municipio" onchange="msChange('conc')" checked><label>Municipio</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Terceros" onchange="msChange('conc')" checked><label>Terceros</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Banco de Alimentos" onchange="msChange('conc')" checked><label>Banco de Alimentos</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Ayuda a la Comunidad" onchange="msChange('conc')" checked><label>Ayuda a la Comunidad</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Fondos Propios" onchange="msChange('conc')" checked><label>Fondos Propios</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Empresas" onchange="msChange('conc')" checked><label>Empresas</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Ajuste de inventario" onchange="msChange('conc')" checked><label>Ajuste de inventario</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-conc-cb" value="Importado" onchange="msChange('conc')" checked><label>Importado</label></div>
+            </div>
+          </div>
+          <select id="hist-periodo" onchange="histPg=1;renderHistorial()" style="min-width:155px"><option value="">Todos los períodos</option></select>
+          <input type="date" id="hist-desde" onchange="histPg=1;renderHistorial()" title="Desde">
+          <input type="date" id="hist-hasta" onchange="histPg=1;renderHistorial()" title="Hasta">
+          <button class="btn" onclick="exportCSV('hist')">↓ CSV</button>
+        </div>
+        <div id="hist-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div id="hist-totals" class="hist-totals" style="display:none"></div>
+        <div class="pager" id="hist-pager"></div>
+      </div>
+    </div>
+
+    <!-- PERÍODO CONTABLE -->
+    <div class="page" id="page-periodo">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Período contable</div><div class="page-sub">Sep → Ago · Resumen por ejercicio</div></div></div>
+      <div class="periodo-tabs" id="periodo-pills"></div>
+      <div id="periodo-banner"></div>
+      <div class="periodo-stats" id="periodo-stats"></div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <span class="tbox-title" id="periodo-table-title">Movimientos del período</span>
+          <input type="text" id="per-q" placeholder="Buscar producto…" style="width:180px" oninput="renderPeriodoTabla()">
+          <select id="per-tipo" onchange="renderPeriodoTabla()"><option value="">Todos los tipos</option><option>Entrada</option><option>Salida</option><option>Cocina</option><option>Panaderia</option><option>Ajuste</option></select>
+          <button class="btn" onclick="exportCSV('periodo')">↓ CSV período</button>
+        </div>
+        <div id="periodo-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div class="pager" id="periodo-pager"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTOS -->
+    <div class="page" id="page-productos">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Productos</div><div class="page-sub">Catálogo completo</div></div></div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <input type="text" id="prod-q" placeholder="Buscar…" style="width:200px" oninput="renderProductos()">
+          <button class="btn green" id="btn-nuevo-prod" onclick="abrirModal(null)">+ Nuevo producto</button>
+        </div>
+        <div id="prod-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div class="pager" id="prod-pager"></div>
+      </div>
+    </div>
+
+    <!-- PRECIOS -->
+    <div class="page" id="page-precios">
+      <div class="page-hdr">
+        <div class="page-hdr-text"><div class="page-title">Lista de precios</div><div class="page-sub">Precios vigentes y historial por producto</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn green" onclick="exportCSV('precios')">↓ Exportar precios</button>
+        </div>
+      </div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <input type="text" id="prec-q" placeholder="Buscar producto…" style="width:220px" oninput="renderPrecios()">
+          <select id="prec-orden" onchange="renderPrecios()">
+            <option value="nombre">Ordenar: Nombre</option>
+            <option value="precio-asc">Precio ↑</option>
+            <option value="precio-desc">Precio ↓</option>
+          </select>
+        </div>
+        <div id="precios-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div class="pager" id="precios-pager"></div>
+      </div>
+      <!-- Historial de precios por producto -->
+      <div class="tbox" id="prec-hist-box" style="display:none">
+        <div class="tbox-toolbar">
+          <span class="tbox-title" id="prec-hist-title">Historial de precios</span>
+          <button class="btn sm" onclick="document.getElementById('prec-hist-box').style.display='none'">✕ Cerrar</button>
+        </div>
+        <div id="prec-hist-wrap"></div>
+      </div>
+    </div>
+
+    <!-- CIERRE MENSUAL -->
+    <div class="page" id="page-cierre">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Cierre mensual</div><div class="page-sub">Actualización de precios y valorización de consumos</div></div></div>
+      <div class="cierre-layout">
+        <div class="cierre-card">
+          <div class="cierre-card-title">1. Seleccioná el mes a cerrar</div>
+          <div class="cierre-card-sub">El cierre toma el último precio de cada entrada del mes y actualiza el precio vigente del producto.</div>
+          <div class="form-row">
+            <label class="form-label">Año</label>
+            <select id="cierre-anio" style="width:100%" onchange="renderCierrePreview()"></select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Mes</label>
+            <select id="cierre-mes" style="width:100%" onchange="renderCierrePreview()">
+              <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+              <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+              <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <button class="btn orange" style="width:100%;justify-content:center" onclick="ejecutarCierre()">📊 Ejecutar cierre mensual</button>
+        </div>
+        <div class="cierre-card">
+          <div class="cierre-card-title">Vista previa de precios</div>
+          <div class="cierre-card-sub">Últimos precios de entradas en el período seleccionado que se aplicarán a los consumos.</div>
+          <div id="cierre-preview-wrap"><div style="color:var(--text3);font-size:13px">Seleccioná mes y año para ver la vista previa.</div></div>
+        </div>
+      </div>
+      <!-- Log de cierres ejecutados -->
+      <div class="tbox" style="margin-top:8px">
+        <div class="tbox-toolbar"><span class="tbox-title">Cierres realizados</span></div>
+        <div id="cierre-log-wrap"><div class="loading">Sin cierres registrados</div></div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="page" id="page-admin">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Panel de administrador</div><div class="page-sub">Gestioná los roles y permisos de los usuarios</div></div></div>
+      <div class="alert alert-info" style="margin-bottom:20px">
+        <div>
+          <strong>Roles disponibles:</strong>
+          <span class="badge b-purple" style="margin:0 6px">Admin</span> Acceso total + panel de administración.
+          <span class="badge b-green" style="margin:0 6px">Usuario</span> Puede registrar movimientos, editar productos, ver todo y realizar cierres.
+          <span class="badge b-gray" style="margin:0 6px">Lectura</span> Solo puede ver Stock y Productos (sin editar).
+        </div>
+      </div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <span class="tbox-title">Usuarios registrados</span>
+          <button class="btn green" onclick="abrirModalNuevoUsuario()">+ Nuevo usuario</button>
+          <button class="btn sm" onclick="loadAdminUsers()">↻ Actualizar</button>
+        </div>
+        <div id="admin-users-wrap"><div class="loading"><span class="spinner"></span>Cargando usuarios…</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL PRODUCTO -->
+<div class="overlay" id="modal-prod" onclick="cerrarModal('modal-prod')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title">Producto</div>
+    <div class="form-row"><label class="form-label">Nombre</label><input type="text" id="ep-nombre" style="width:100%"></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Unidad</label><input type="text" id="ep-unidad" placeholder="kg, lts, Un…"></div>
+      <div class="form-row"><label class="form-label">Precio unitario</label><input type="number" id="ep-precio" min="0"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Stock mínimo (para alertas)</label><input type="number" id="ep-minimo" min="0" step="1" placeholder="0 = sin alerta" style="width:100%"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-prod')">Cancelar</button>
+      <button class="btn green" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR -->
+<div class="overlay" id="modal-import" onclick="cerrarModal('modal-import')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Importar historial desde Excel</div>
+    <div class="modal-sub">
+      El archivo necesita estas columnas (los nombres pueden variar, las detectamos automáticamente):<br>
+      <strong>producto / fecha / tipo / concepto / cantidad / precio</strong><br>
+      Los registros se <strong>agregan</strong> sin borrar los existentes.
+    </div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="onFileDrop(event)">
+      <div class="dz-icon">📂</div>
+      <div class="dz-text">Clic o arrastrá tu archivo Excel aquí</div>
+      <div class="dz-sub">.xlsx · .xls</div>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="onFileSelect(event)">
+    <div id="import-preview" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:600" id="import-label"></div>
+        <div style="font-size:12px;color:var(--orange-t)" id="import-errors"></div>
+      </div>
+      <div class="preview-wrap" id="import-table-wrap"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-import')">Cancelar</button>
+      <button class="btn green" id="btn-import" onclick="confirmarImport()" disabled>Importar registros</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PRECIO -->
+<div class="overlay" id="modal-precio" onclick="cerrarModal('modal-precio')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Actualizar precio</div>
+    <div class="modal-sub" id="modal-precio-sub"></div>
+    <div class="form-row"><label class="form-label">Nuevo precio unitario</label><input type="number" id="nuevo-precio" min="0" step="1" placeholder="0" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">Motivo del cambio (opcional)</label><input type="text" id="precio-motivo" placeholder="Ej: Actualización por cierre mensual" style="width:100%"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-precio')">Cancelar</button>
+      <button class="btn green" onclick="confirmarPrecio()">Guardar precio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO USUARIO (admin) -->
+<div class="overlay" id="modal-nuevo-user" onclick="cerrarModal('modal-nuevo-user')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Crear nuevo usuario</div>
+    <div class="modal-sub">El usuario recibirá una contraseña provisoria y deberá cambiarla al primer ingreso.</div>
+    <div class="form-row"><label class="form-label">Nombre completo</label><input type="text" id="nu-nombre" placeholder="Ej: María González" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">Correo electrónico</label><input type="email" id="nu-email" placeholder="usuario@correo.com" style="width:100%"></div>
+    <div class="form-row">
+      <label class="form-label">Rol</label>
+      <div style="display:flex;gap:8px;margin-top:4px" id="nu-role-selector">
+        <div class="role-opt sel-usuario" onclick="selectNuRole('usuario',this)">Usuario</div>
+        <div class="role-opt" onclick="selectNuRole('admin',this)">Admin</div>
+        <div class="role-opt" onclick="selectNuRole('lectura',this)">Lectura</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Contraseña provisoria</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="nu-pass" placeholder="Mínimo 6 caracteres" style="flex:1">
+        <button class="btn sm" onclick="generarPass()">&#9889; Generar</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:5px">El usuario deberá cambiarla al primer ingreso.</div>
+    </div>
+    <div id="nu-error" style="display:none;background:var(--red-l);color:var(--red-t);border:1px solid #FECACA;border-radius:var(--rs);padding:9px 13px;font-size:13px;margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-nuevo-user')">Cancelar</button>
+      <button class="btn green" id="btn-crear-user" onclick="crearUsuarioAdmin()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR TRANSACCIÓN (solo admin) -->
+<div class="overlay" id="modal-edit-txn" onclick="cerrarModal('modal-edit-txn')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Editar movimiento</div>
+    <div class="modal-sub" id="edit-txn-sub"></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="et-fecha" style="width:100%"></div>
+      <div class="form-row"><label class="form-label">Tipo</label>
+        <select id="et-tipo" style="width:100%">
+          <option>Entrada</option><option>Cocina</option><option>Panaderia</option><option>Salida</option><option>Ajuste</option><option>Vencidos</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label class="form-label">Concepto</label>
+      <select id="et-conc" style="width:100%">
+        <option>Consumo Interno</option><option>Caritas</option><option>Municipio</option><option>Terceros</option><option>Banco de Alimentos</option><option>Ayuda a la Comunidad</option><option>Fondos Propios</option><option>Empresas</option><option>Ajuste de inventario</option><option>Importado</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Cantidad</label><input type="number" id="et-cant" min="0.1" step="0.5" style="width:100%"></div>
+      <div class="form-row"><label class="form-label">Precio unitario</label><input type="number" id="et-precio" min="0" step="1" style="width:100%"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-edit-txn')">Cancelar</button>
+      <button class="btn green" onclick="confirmarEditarTransaccion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIO DE CONTRASEÑA (primer ingreso) -->
+<div class="overlay" id="modal-cambio-pass">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">&#128272; Cambiá tu contraseña</div>
+    <div class="modal-sub">Es la primera vez que ingresás al sistema. Por seguridad, definí una contraseña personal antes de continuar.</div>
+    <div class="form-row"><label class="form-label">Nueva contraseña</label><input type="password" id="cp-nueva" placeholder="Mínimo 6 caracteres" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">Repetir contraseña</label><input type="password" id="cp-repetir" placeholder="Igual que la anterior" style="width:100%"></div>
+    <div id="cp-error" style="display:none;background:var(--red-l);color:var(--red-t);border:1px solid #FECACA;border-radius:var(--rs);padding:9px 13px;font-size:13px;margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn green" id="btn-cambiar-pass" onclick="confirmarCambioPass()">Guardar contraseña y continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL='https://cyefgpuegyfwtiekqtpx.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5ZWZncHVlZ3lmd3RpZWtxdHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3Mzg1NzQsImV4cCI6MjA5MzMxNDU3NH0.5QkK4Y-GpLvYtx5ldFLzq4yBses8TtFybR-emY0k5fc';
+const {createClient}=supabase;
+const db=createClient(SUPA_URL,SUPA_KEY,{
+  auth:{persistSession:true,storageKey:'lech_auth'},
+  global:{fetch:(...args)=>fetch(...args)}
+});
+
+// ── STATE ──────────────────────────────────────────────
+let currentUser=null,currentUserName='',currentRole=''; // admin | usuario | lectura
+let _blockAuthChange=false;
+let productos=[],transacciones=[],historialPrecios=[];
+let tipoMov='Entrada',editingProdId=null,importRows=[];
+let periodoActivo='',perioPg=1;
+const PAGE=30;
+let stockPg=1,histPg=1,prodPg=1,preciosPg=1;
+let editingPrecioProdId=null;
+
+// ── ROLES / PERMISOS ───────────────────────────────────
+// Tabla esperada en Supabase: user_roles (id uuid pk, user_id uuid, user_email text, user_name text, role text)
+// Nota: si no existe la tabla, el primer usuario que inicie sesión se auto-asigna como admin
+
+const ROLE_LABELS={'admin':'Admin','usuario':'Usuario','lectura':'Lectura'};
+const ROLE_COLORS={'admin':'role-admin','usuario':'role-usuario','lectura':'role-lectura'};
+
+function can(action){
+  // action: 'edit_products','register_mov','cierre','admin','view_all'
+  if(currentRole==='admin')return true;
+  if(currentRole==='usuario'){
+    return['edit_products','register_mov','cierre','view_all'].includes(action);
+  }
+  if(currentRole==='lectura'){
+    return['view_stock'].includes(action);
+  }
+  return false;
+}
+
+function applyNavPermissions(){
+  const isAdmin=currentRole==='admin';
+  const isUsuario=currentRole==='usuario';
+  const isLectura=currentRole==='lectura';
+
+  // Todos los nav buttons
+  const setNav=(id,show)=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=show?'':'none';
+  };
+
+  setNav('nav-admin',isAdmin);
+  setNav('nav-stock',true);
+  setNav('nav-movimiento',isAdmin||isUsuario);
+  setNav('nav-historial',isAdmin||isUsuario);
+  setNav('nav-periodo',isAdmin||isUsuario);
+  setNav('nav-productos',true);
+  setNav('nav-precios',isAdmin||isUsuario);
+  setNav('nav-cierre',isAdmin||isUsuario);
+
+  // Botón nuevo producto
+  const btnNuev=document.getElementById('btn-nuevo-prod');
+  if(btnNuev)btnNuev.style.display=(isAdmin||isUsuario)?'':'none';
+}
+
+// ── PERÍODOS (Sep-Ago) ────────────────────────────────
+function getPeriodoKey(f){
+  if(!f)return'';
+  const d=new Date(f+'T00:00:00');
+  const m=d.getMonth()+1,y=d.getFullYear();
+  const ini=m>=9?y:y-1;
+  return`${ini}-${ini+1}`;
+}
+function getPeriodoLabel(k){if(!k)return'';const[a,b]=k.split('-');return`Sep ${a} – Ago ${b}`;}
+function getPeriodoRange(k){const[a]=k.split('-');return{desde:`${a}-09-01`,hasta:`${parseInt(a)+1}-08-31`};}
+function getPeriodoActual(){return getPeriodoKey(new Date().toISOString().split('T')[0]);}
+function getPeriodosDisponibles(){
+  const keys=new Set(transacciones.map(t=>getPeriodoKey(t.fecha)).filter(Boolean));
+  return Array.from(keys).sort().reverse();
+}
+function buildPeriodoSelect(){
+  const per=getPeriodosDisponibles();
+  document.getElementById('hist-periodo').innerHTML='<option value="">Todos los períodos</option>'+
+    per.map(p=>`<option value="${p}">${getPeriodoLabel(p)}</option>`).join('');
+}
+
+// ── AUTH ──────────────────────────────────────────────
+function switchAuthTab(tab){
+  document.getElementById('tab-login').classList.toggle('active',tab==='login');
+  document.getElementById('tab-register').classList.toggle('active',tab==='register');
+  document.getElementById('form-login').style.display=tab==='login'?'':'none';
+  document.getElementById('form-register').style.display=tab==='register'?'':'none';
+  document.getElementById('auth-error').style.display='none';
+}
+function showAuthError(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
+
+
+
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  if(!email||!pass){showAuthError('Completá todos los campos.');return;}
+  const btn=document.getElementById('btn-login');
+  btn.disabled=true;btn.textContent='Ingresando…';
+  try{
+    // 1. Intentar login normal primero
+    const{data,error}=await db.auth.signInWithPassword({email,password:pass});
+
+    if(error){
+      // 2. Si falla, verificar si es un usuario pendiente creado por el admin
+      const{data:pending}=await db.from('pending_users').select('*').eq('email',email).limit(1);
+
+      if(pending&&pending.length>0&&pending[0].temp_password===pass){
+        // Es usuario pendiente con clave correcta — registrarlo en Auth ahora
+        const p=pending[0];
+
+        // Bloquear onAuthStateChange mientras hacemos el setup
+        _blockAuthChange=true;
+
+        const{data:signupData,error:signupErr}=await db.auth.signUp({
+          email,
+          password:pass,
+          options:{data:{nombre_completo:p.nombre,must_change_password:true}}
+        });
+        if(signupErr){
+          _blockAuthChange=false;
+          btn.disabled=false;btn.textContent='Ingresar';
+          showAuthError('Error al activar cuenta: '+signupErr.message);
+          return;
+        }
+
+        const newUserId=signupData.user.id;
+
+        // 1. Insertar en user_roles ANTES de cualquier initApp
+        const{error:roleInsErr}=await db.from('user_roles').insert({
+          user_id: newUserId,
+          user_email: email,
+          user_name: p.nombre,
+          role: p.role,
+          must_change_password: true
+        });
+        if(roleInsErr) console.error('user_roles insert error:',roleInsErr);
+
+        // 2. Eliminar de pending_users
+        await db.from('pending_users').delete().eq('id',p.id);
+
+        // 3. Desbloquear y llamar initApp manualmente
+        _blockAuthChange=false;
+        btn.disabled=false;btn.textContent='Ingresar';
+        const{data:meData}=await db.auth.getUser();
+        await initApp(meData.user);
+        return;
+      }
+
+      // No es pendiente — error normal
+      btn.disabled=false;btn.textContent='Ingresar';
+      console.error('Login error:',error);
+      if(error.message?.includes('Email not confirmed'))showAuthError('Confirmá tu email, o pedi al administrador que reactive tu cuenta.');
+      else if(error.message?.includes('Invalid login')||error.message?.includes('invalid_credentials'))showAuthError('Email o contraseña incorrectos.');
+      else showAuthError('Error: '+error.message);
+      return;
+    }
+
+    btn.disabled=false;btn.textContent='Ingresar';
+    await initApp(data.user);
+  }catch(e){
+    btn.disabled=false;btn.textContent='Ingresar';
+    showAuthError('Error inesperado: '+e.message);
+    console.error(e);
+  }
+}
+
+async function doRegister(){
+  const nombre=document.getElementById('r-nombre').value.trim();
+  const email=document.getElementById('r-email').value.trim();
+  const pass=document.getElementById('r-pass').value;
+  if(!nombre||!email||!pass){showAuthError('Completá todos los campos.');return;}
+  if(pass.length<6){showAuthError('La contraseña debe tener al menos 6 caracteres.');return;}
+  const btn=document.getElementById('btn-register');
+  btn.disabled=true;btn.textContent='Creando cuenta…';
+  try{
+    const{data,error}=await db.auth.signUp({email,password:pass,options:{data:{nombre_completo:nombre}}});
+    if(error){btn.disabled=false;btn.textContent='Crear cuenta';showAuthError(error.message);return;}
+    // Insert pending role record (ignore errors)
+    try{await db.from('user_roles').insert({user_id:data.user.id,user_email:email,user_name:nombre,role:null});}catch(_){}
+    await initApp(data.user);
+  }catch(e){
+    btn.disabled=false;btn.textContent='Crear cuenta';
+    showAuthError('Error inesperado: '+e.message);
+  }
+}
+
+async function doLogout(){
+  await db.auth.signOut();
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('pending-screen').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+  currentUser=null;currentRole='';
+}
+
+// ── INIT ──────────────────────────────────────────────
+async function initApp(user){
+  currentUser=user;
+  currentUserName=user.user_metadata?.nombre_completo||user.email.split('@')[0];
+
+  // Load role from user_roles table. On any error → default admin so the app always opens.
+  try{
+    const{data:rows,error:roleErr}=await db.from('user_roles').select('role,must_change_password').eq('user_id',user.id);
+    if(roleErr){
+      console.warn('user_roles query error (defaulting to admin):',roleErr);
+      currentRole='admin';
+    } else if(!rows||rows.length===0){
+      // No record — check if first user ever
+      const{data:admins}=await db.from('user_roles').select('id').not('role','is',null).limit(1);
+      if(!admins||admins.length===0){
+        // First user ever → admin
+        currentRole='admin';
+        try{await db.from('user_roles').insert({user_id:user.id,user_email:user.email,user_name:currentUserName,role:'admin'});}catch(_){}
+      } else {
+        // Pending — no role assigned yet
+        currentRole=null;
+      }
+    } else {
+      currentRole=rows[0].role||null;
+    }
+  } catch(e){
+    console.warn('user_roles exception, defaulting to admin:',e);
+    currentRole='admin';
+  }
+
+  if(!currentRole){
+    // Pending activation
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('pending-screen').style.display='flex';
+    return;
+  }
+
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('pending-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+
+  const ini=currentUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('user-avatar').textContent=ini;
+  document.getElementById('user-name-label').textContent=currentUserName;
+  const rb=document.getElementById('user-role-badge');
+  rb.textContent=ROLE_LABELS[currentRole]||currentRole;
+  rb.className='role-badge '+ROLE_COLORS[currentRole];
+  document.getElementById('mov-fecha').value=todayStr();
+
+  applyNavPermissions();
+  initCierreAnios();
+
+  try{
+    await loadProductos();
+    await loadTransacciones();
+    await loadHistorialPrecios();
+  }catch(e){
+    showToast('Error de conexión: '+e.message,'err');
+    return;
+  }
+
+  periodoActivo=getPeriodoActual();
+  renderDashboard();
+  populateProductoSelect();
+  renderMovRecientes();
+  buildPeriodoSelect();
+
+  // Check if user must change password on first login
+  await checkMustChangePassword();
+}
+
+async function loadProductos(){
+  const{data,error}=await db.from('productos').select('*').order('nombre');
+  if(error){showToast('Error cargando productos: '+error.message,'err');return;}
+  productos=data||[];
+}
+
+async function loadTransacciones(){
+  let all=[],from=0,step=1000,done=false;
+  while(!done){
+    const{data,error}=await db.from('transacciones').select('*').order('fecha',{ascending:false}).order('created_at',{ascending:false}).range(from,from+step-1);
+    if(error){showToast('Error cargando historial: '+error.message,'err');break;}
+    all=all.concat(data||[]);
+    if(!data||data.length<step)done=true;
+    else from+=step;
+  }
+  transacciones=all;
+  const el=document.getElementById('hist-count');
+  if(el)el.textContent=transacciones.length+' registros';
+}
+
+async function loadHistorialPrecios(){
+  // Tabla: historial_precios (id, producto_id, producto_nombre, precio_anterior, precio_nuevo, fecha, motivo, usuario_email)
+  const{data,error}=await db.from('historial_precios').select('*').order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  if(error){console.warn('historial_precios no disponible:',error.message);historialPrecios=[];return;}
+  historialPrecios=data||[];
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function fmt(n){return Number(n||0).toLocaleString('es-AR',{maximumFractionDigits:2});}
+function fmtP(n){return '$'+Number(n||0).toLocaleString('es-AR',{maximumFractionDigits:0});}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',3000);}
+function stockStatus(p){
+  if(p.stock<0)return{label:'Negativo',cls:'b-red',dot:'dot-r'};
+  if(p.stock===0)return{label:'Sin stock',cls:'b-red',dot:'dot-r'};
+  if(p.stock_minimo>0&&p.stock<=p.stock_minimo)return{label:'Stock bajo',cls:'b-orange',dot:'dot-o'};
+  return{label:'OK',cls:'b-green',dot:'dot-g'};
+}
+function tipoBadge(tipo){
+  const m={Entrada:'b-green',Salida:'b-blue',Cocina:'b-yellow',Panaderia:'b-purple',Ajuste:'b-gray',Vencidos:'b-red','Mal estado':'b-red'};
+  return`<span class="badge ${m[tipo]||'b-gray'}">${tipo}</span>`;
+}
+function makePager(total,cur,setter,id){
+  const pages=Math.ceil(total/PAGE);
+  if(pages<=1){document.getElementById(id).innerHTML='';return;}
+  let h=`<span class="info">${total} registros</span>`;
+  h+=`<div class="pb ${cur===1?'off':''}" onclick="${setter}(${cur-1})">‹</div>`;
+  let s=Math.max(1,cur-2),e=Math.min(pages,s+4);s=Math.max(1,e-4);
+  for(let i=s;i<=e;i++)h+=`<div class="pb ${i===cur?'on':''}" onclick="${setter}(${i})">${i}</div>`;
+  h+=`<div class="pb ${cur===pages?'off':''}" onclick="${setter}(${cur+1})">›</div>`;
+  document.getElementById(id).innerHTML=h;
+}
+
+// ── MULTI-SELECT ───────────────────────────────────────
+function toggleMs(prefix){
+  const dd=document.getElementById(prefix+'-dd');
+  const isOpen=dd.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.ms-dropdown').forEach(d=>d.classList.remove('open'));
+  if(!isOpen)dd.classList.add('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown').forEach(d=>d.classList.remove('open'));
+});
+function msSelectAll(type,cb){
+  document.querySelectorAll('.ms-'+type+'-cb').forEach(c=>{c.checked=cb.checked;});
+  msChange(type);
+}
+function msChange(type){
+  const cbs=Array.from(document.querySelectorAll('.ms-'+type+'-cb'));
+  const sel=cbs.filter(c=>c.checked).map(c=>c.value);
+  const all=cbs.every(c=>c.checked);
+  const allCb=document.getElementById(type==='tipo'?'mst-all':'msc-all');
+  if(allCb)allCb.checked=all;
+  const lbl=document.getElementById('ms-'+type+'-label');
+  const btn=document.getElementById('ms-'+type+'-btn');
+  if(all){lbl.textContent=type==='tipo'?'Todos los tipos':'Todos los conceptos';btn.classList.remove('active');}
+  else if(sel.length===0){lbl.textContent='Ninguno';btn.classList.add('active');}
+  else{lbl.textContent=sel.length+' seleccionados';btn.classList.add('active');}
+  histPg=1;renderHistorial();
+}
+function getMsSelected(type){
+  const cbs=Array.from(document.querySelectorAll('.ms-'+type+'-cb'));
+  return cbs.filter(c=>c.checked).map(c=>c.value);
+}
+
+// ── NAV ───────────────────────────────────────────────
+function goTo(page,btn){
+  // Permisos de navegación
+  if(page==='movimiento'&&!can('register_mov')){showToast('No tenés permiso para registrar movimientos','err');return;}
+  if(page==='admin'&&currentRole!=='admin'){showToast('Acceso solo para administradores','err');return;}
+  if(page==='cierre'&&!can('cierre')){showToast('No tenés permiso para realizar cierres','err');return;}
+  if(page==='precios'&&!can('view_all')&&currentRole!=='admin'){showToast('Sin acceso','err');return;}
+  if(page==='historial'&&currentRole==='lectura'){showToast('Sin acceso','err');return;}
+
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(btn)btn.classList.add('active');
+
+  if(page==='dashboard')renderDashboard();
+  if(page==='stock')renderStock();
+  if(page==='historial'){buildPeriodoSelect();renderHistorial();}
+  if(page==='periodo')renderPeriodo();
+  if(page==='productos')renderProductos();
+  if(page==='movimiento'){populateProductoSelect();renderMovRecientes();}
+  if(page==='precios')renderPrecios();
+  if(page==='cierre')renderCierreLog();
+  if(page==='admin')loadAdminUsers();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────
+function renderDashboard(){
+  const d=new Date();
+  document.getElementById('dash-fecha').textContent=d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const totalVal=productos.reduce((a,p)=>a+(p.stock*p.precio),0);
+  const sinStock=productos.filter(p=>p.stock<=0).length;
+  const bajoMin=productos.filter(p=>p.stock_minimo>0&&p.stock>0&&p.stock<=p.stock_minimo).length;
+  const negativos=productos.filter(p=>p.stock<0);
+  const pKey=getPeriodoActual();
+  const{desde,hasta}=getPeriodoRange(pKey);
+  const txnP=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat accent"><div class="stat-lbl">Valor inventario</div><div class="stat-val">${fmtP(totalVal)}</div><div class="stat-sub">${productos.length} productos</div></div>
+    <div class="stat teal"><div class="stat-lbl">Período actual</div><div class="stat-val">${txnP.length}</div><div class="stat-sub">${getPeriodoLabel(pKey)}</div></div>
+    <div class="stat warn"><div class="stat-lbl">Stock bajo</div><div class="stat-val">${bajoMin}</div><div class="stat-sub">cerca del mínimo</div></div>
+    <div class="stat danger"><div class="stat-lbl">Sin stock</div><div class="stat-val">${sinStock}</div><div class="stat-sub">agotados</div></div>`;
+  let alerts='';
+  if(negativos.length)alerts+=`<div class="alert alert-danger">⚠️ Stock negativo: ${negativos.map(p=>p.nombre).join(', ')}.</div>`;
+  document.getElementById('dash-alerts').innerHTML=alerts;
+  const low=productos.filter(p=>p.stock<=0||(p.stock_minimo>0&&p.stock<=p.stock_minimo)).sort((a,b)=>a.stock-b.stock).slice(0,12);
+  document.getElementById('dash-table-wrap').innerHTML=low.length===0
+    ?'<div style="text-align:center;padding:32px;color:var(--text3)">✓ Todo el stock está por encima del mínimo</div>'
+    :`<table><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead><tbody>${low.map(p=>{const s=stockStatus(p);return`<tr><td><strong>${p.nombre}</strong></td><td><span class="dot ${s.dot}"></span>${fmt(p.stock)} ${p.unidad}</td><td>${p.stock_minimo>0?fmt(p.stock_minimo)+' '+p.unidad:'<span style="color:var(--text3)">—</span>'}</td><td><span class="badge ${s.cls}">${s.label}</span></td></tr>`;}).join('')}</tbody></table>`;
+}
+
+// ── STOCK ─────────────────────────────────────────────
+function renderStock(){
+  const q=document.getElementById('stock-q').value.toLowerCase();
+  const f=document.getElementById('stock-f').value;
+  let list=productos.filter(p=>p.nombre.toLowerCase().includes(q));
+  if(f==='con')list=list.filter(p=>p.stock>0);
+  if(f==='sin')list=list.filter(p=>p.stock<=0);
+  if(f==='bajo')list=list.filter(p=>p.stock_minimo>0&&p.stock<=p.stock_minimo);
+  list.sort((a,b)=>b.stock-a.stock);
+  const pg=list.slice((stockPg-1)*PAGE,stockPg*PAGE);
+  const canEdit=can('edit_products');
+  document.getElementById('stock-wrap').innerHTML=pg.length===0?'<div class="loading">Sin resultados</div>'
+    :`<table><thead><tr><th>Producto</th><th>Unidad</th><th>Stock</th><th>Precio</th><th>Valor</th><th>Estado</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${pg.map(p=>{const s=stockStatus(p);return`<tr><td><strong>${p.nombre}</strong></td><td style="color:var(--text2)">${p.unidad}</td><td><span class="dot ${s.dot}"></span><strong>${fmt(p.stock)}</strong></td><td style="color:var(--text2)">${fmtP(p.precio)}</td><td>${fmtP(p.stock*p.precio)}</td><td><span class="badge ${s.cls}">${s.label}</span></td>${canEdit?`<td><button class="btn sm" onclick="abrirModal('${p.id}')">Editar</button></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+  makePager(list.length,stockPg,'setStockPg','stock-pager');
+}
+function setStockPg(n){stockPg=n;renderStock();}
+
+// ── MOVIMIENTO ────────────────────────────────────────
+function populateProductoSelect(){
+  document.getElementById('mov-prod').innerHTML='<option value="">— Seleccioná un producto —</option>'+
+    [...productos].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+}
+function setTipo(t,el){
+  tipoMov=t;
+  document.querySelectorAll('#tipo-tabs .tipo-tab').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  const c=document.getElementById('mov-conc');
+  if(['Cocina','Panaderia','Salida'].includes(t))c.value='Consumo Interno';
+  if(t==='Entrada')c.value='Caritas';
+  if(t==='Ajuste')c.value='Ajuste de inventario';
+}
+function onProdChange(){
+  const id=document.getElementById('mov-prod').value;
+  const p=productos.find(x=>x.id===id);
+  const box=document.getElementById('stock-info');
+  if(p){box.style.display='';document.getElementById('stock-info-val').textContent=fmt(p.stock)+' '+p.unidad;if(p.precio)document.getElementById('mov-precio').value=p.precio;}
+  else box.style.display='none';
+}
+async function guardarMovimiento(){
+  if(!can('register_mov')){showToast('Sin permiso para registrar','err');return;}
+  const prodId=document.getElementById('mov-prod').value;
+  const cant=parseFloat(document.getElementById('mov-cant').value);
+  const fecha=document.getElementById('mov-fecha').value;
+  const conc=document.getElementById('mov-conc').value;
+  const precio=parseFloat(document.getElementById('mov-precio').value)||0;
+  if(!prodId){showToast('Seleccioná un producto','err');return;}
+  if(!cant||cant<=0){showToast('Ingresá una cantidad válida','err');return;}
+  if(!fecha){showToast('Seleccioná una fecha','err');return;}
+  const prod=productos.find(p=>p.id===prodId);
+  const btn=document.getElementById('btn-guardar');
+  btn.disabled=true;btn.textContent='Guardando…';
+  const esI=tipoMov==='Entrada',esA=tipoMov==='Ajuste';
+  const nuevoStock=esI?prod.stock+cant:esA?prod.stock+cant:prod.stock-cant;
+  const{error:tErr}=await db.from('transacciones').insert({producto_nombre:prod.nombre,fecha,tipo:tipoMov,concepto:conc,cantidad:cant,precio,usuario_email:currentUser.email,usuario_nombre:currentUserName});
+  if(tErr){showToast('Error: '+tErr.message,'err');btn.disabled=false;btn.textContent='✓ Guardar movimiento';return;}
+  await db.from('productos').update({stock:Math.round(nuevoStock*100)/100,precio:precio||prod.precio}).eq('id',prodId);
+  await loadProductos();await loadTransacciones();
+  document.getElementById('mov-prod').value='';document.getElementById('mov-cant').value='';
+  document.getElementById('mov-precio').value='';document.getElementById('stock-info').style.display='none';
+  btn.disabled=false;btn.textContent='✓ Guardar movimiento';
+  showToast('✓ Guardado — '+prod.nombre,'ok');
+  renderMovRecientes();buildPeriodoSelect();
+}
+function renderMovRecientes(){
+  const hoy=todayStr();
+  const rec=transacciones.filter(t=>t.fecha===hoy).slice(0,8);
+  const el=document.getElementById('mov-recientes');
+  if(!rec.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">Sin movimientos hoy aún.</div>';return;}
+  el.innerHTML=rec.map(t=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${tipoBadge(t.tipo)}<span style="font-size:11px;color:var(--text3)">${t.usuario_nombre||t.usuario_email||'—'}</span></div><div style="font-size:14px;font-weight:500">${t.producto_nombre}</div><div style="font-size:12px;color:var(--text2)">${fmt(t.cantidad)} · ${t.concepto||'—'}</div></div>`).join('');
+}
+
+// ── HISTORIAL ─────────────────────────────────────────
+function renderHistorial(){
+  const q=document.getElementById('hist-q').value.toLowerCase();
+  const tiposSelected=getMsSelected('tipo');
+  const concsSelected=getMsSelected('conc');
+  const per=document.getElementById('hist-periodo').value;
+  const desde=document.getElementById('hist-desde').value;
+  const hasta=document.getElementById('hist-hasta').value;
+
+  let list=transacciones.filter(t=>{
+    if(q&&!t.producto_nombre.toLowerCase().includes(q))return false;
+    if(tiposSelected.length&&!tiposSelected.includes(t.tipo))return false;
+    if(concsSelected.length&&!concsSelected.includes(t.concepto||''))return false;
+    if(per&&getPeriodoKey(t.fecha)!==per)return false;
+    if(desde&&t.fecha<desde)return false;
+    if(hasta&&t.fecha>hasta)return false;
+    return true;
+  });
+
+  document.getElementById('hist-count').textContent=list.length+' registros';
+
+  // TOTALES
+  const totalMovs=list.length;
+  const totalEntradas=list.filter(t=>t.tipo==='Entrada').reduce((a,t)=>a+(t.cantidad*(t.precio||0)),0);
+  const totalConsumos=list.filter(t=>['Salida','Cocina','Panaderia'].includes(t.tipo)).reduce((a,t)=>a+(t.cantidad*(t.precio||0)),0);
+  const totalCantEntrada=list.filter(t=>t.tipo==='Entrada').reduce((a,t)=>a+t.cantidad,0);
+  const totDiv=document.getElementById('hist-totals');
+  totDiv.style.display='';
+  totDiv.innerHTML=`
+    <div class="hist-total-item"><div class="hist-total-lbl">Total movimientos</div><div class="hist-total-val">${totalMovs}</div></div>
+    <div class="hist-total-item"><div class="hist-total-lbl">Entradas (valor)</div><div class="hist-total-val green">${fmtP(totalEntradas)}</div></div>
+    <div class="hist-total-item"><div class="hist-total-lbl">Consumos (valor)</div><div class="hist-total-val blue">${fmtP(totalConsumos)}</div></div>
+    <div class="hist-total-item"><div class="hist-total-lbl">Total cant. entradas</div><div class="hist-total-val orange">${fmt(totalCantEntrada)}</div></div>`;
+
+  const pg=list.slice((histPg-1)*PAGE,histPg*PAGE);
+  const isAdmin=currentRole==='admin';
+  document.getElementById('hist-wrap').innerHTML=pg.length===0?'<div class="loading">Sin resultados</div>'
+    :`<table><thead><tr><th>Fecha</th><th>Período</th><th>Producto</th><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Precio orig.</th><th>Precio cierre</th><th>Usuario</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>${pg.map(t=>`<tr>
+      <td style="font-family:monospace;font-size:12px;color:var(--text2)">${t.fecha||'—'}</td>
+      <td><span class="badge b-teal" style="font-size:10px">${getPeriodoLabel(getPeriodoKey(t.fecha))}</span></td>
+      <td><strong>${t.producto_nombre}</strong></td>
+      <td>${tipoBadge(t.tipo)}</td>
+      <td style="color:var(--text2)">${t.concepto||'—'}</td>
+      <td style="font-weight:500">${fmt(t.cantidad)}</td>
+      <td style="color:var(--text2)">${t.precio?fmtP(t.precio):'—'}</td>
+      <td style="color:var(--green);font-weight:500">${t.precio_cierre?fmtP(t.precio_cierre):'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--text2);font-size:12px">${t.usuario_nombre||t.usuario_email||'—'}</td>
+      ${isAdmin?`<td><div style="display:flex;gap:5px"><button class="btn sm" onclick="abrirEditarTransaccion('${t.id}')">✏ Editar</button><button class="btn sm" style="border-color:var(--red);color:var(--red)" onclick="eliminarTransaccion('${t.id}')">✕</button></div></td>`:''}
+    </tr>`).join('')}</tbody></table>`;
+  makePager(list.length,histPg,'setHistPg','hist-pager');
+}
+function setHistPg(n){histPg=n;renderHistorial();}
+
+// ── PERÍODO CONTABLE ──────────────────────────────────
+function renderPeriodo(){
+  const periodos=getPeriodosDisponibles();
+  if(!periodoActivo||!periodos.includes(periodoActivo))periodoActivo=periodos[0]||getPeriodoActual();
+  document.getElementById('periodo-pills').innerHTML=periodos.map(p=>
+    `<div class="periodo-pill ${p===periodoActivo?'on':''}" onclick="setPeriodo('${p}')">${getPeriodoLabel(p)}</div>`
+  ).join('');
+  const{desde,hasta}=getPeriodoRange(periodoActivo);
+  const txns=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
+  const entradas=txns.filter(t=>t.tipo==='Entrada');
+  const salidas=txns.filter(t=>['Salida','Cocina','Panaderia'].includes(t.tipo));
+  const ajustes=txns.filter(t=>t.tipo==='Ajuste');
+  const valE=entradas.reduce((a,t)=>a+t.cantidad*t.precio,0);
+  document.getElementById('periodo-banner').innerHTML=`
+    <div class="periodo-banner">
+      <div class="pb-stat"><div class="pb-label">Período activo</div><div class="pb-val">${getPeriodoLabel(periodoActivo)}</div></div>
+      <div class="pb-sep"></div>
+      <div class="pb-stat"><div class="pb-label">Inicio</div><div class="pb-val">${desde}</div></div>
+      <div class="pb-sep"></div>
+      <div class="pb-stat"><div class="pb-label">Cierre</div><div class="pb-val">${hasta}</div></div>
+      <div class="pb-sep"></div>
+      <div class="pb-stat"><div class="pb-label">Total movimientos</div><div class="pb-val">${txns.length}</div></div>
+    </div>`;
+  document.getElementById('periodo-stats').innerHTML=`
+    <div class="stat"><div class="stat-lbl">Entradas</div><div class="stat-val" style="color:var(--green)">${entradas.length}</div><div class="stat-sub">${fmtP(valE)} en valor</div></div>
+    <div class="stat"><div class="stat-lbl">Salidas / Consumo</div><div class="stat-val" style="color:var(--blue)">${salidas.length}</div><div class="stat-sub">Cocina + Panadería + Salida</div></div>
+    <div class="stat"><div class="stat-lbl">Ajustes</div><div class="stat-val" style="color:var(--orange)">${ajustes.length}</div><div class="stat-sub">correcciones de inventario</div></div>`;
+  document.getElementById('periodo-table-title').textContent='Movimientos · '+getPeriodoLabel(periodoActivo);
+  renderPeriodoTabla();
+}
+function setPeriodo(key){periodoActivo=key;perioPg=1;renderPeriodo();}
+function renderPeriodoTabla(){
+  const q=document.getElementById('per-q').value.toLowerCase();
+  const tipo=document.getElementById('per-tipo').value;
+  const{desde,hasta}=getPeriodoRange(periodoActivo);
+  let list=transacciones.filter(t=>{
+    if(t.fecha<desde||t.fecha>hasta)return false;
+    if(q&&!t.producto_nombre.toLowerCase().includes(q))return false;
+    if(tipo&&t.tipo!==tipo)return false;
+    return true;
+  });
+  const pg=list.slice((perioPg-1)*PAGE,perioPg*PAGE);
+  document.getElementById('periodo-wrap').innerHTML=pg.length===0?'<div class="loading">Sin movimientos para este período</div>'
+    :`<table><thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Precio</th><th>Usuario</th></tr></thead><tbody>${pg.map(t=>`<tr>
+      <td style="font-family:monospace;font-size:12px;color:var(--text2)">${t.fecha||'—'}</td>
+      <td><strong>${t.producto_nombre}</strong></td>
+      <td>${tipoBadge(t.tipo)}</td>
+      <td style="color:var(--text2)">${t.concepto||'—'}</td>
+      <td style="font-weight:500">${fmt(t.cantidad)}</td>
+      <td style="color:var(--text2)">${t.precio?fmtP(t.precio):'—'}</td>
+      <td style="color:var(--text2);font-size:12px">${t.usuario_nombre||t.usuario_email||'—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+  makePager(list.length,perioPg,'setPerioPg','periodo-pager');
+}
+function setPerioPg(n){perioPg=n;renderPeriodoTabla();}
+
+// ── PRECIOS ───────────────────────────────────────────
+function renderPrecios(){
+  const q=document.getElementById('prec-q').value.toLowerCase();
+  const orden=document.getElementById('prec-orden').value;
+  let list=[...productos].filter(p=>p.nombre.toLowerCase().includes(q));
+  if(orden==='nombre')list.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  else if(orden==='precio-asc')list.sort((a,b)=>a.precio-b.precio);
+  else if(orden==='precio-desc')list.sort((a,b)=>b.precio-a.precio);
+
+  const pg=list.slice((preciosPg-1)*PAGE,preciosPg*PAGE);
+  const canEdit=can('edit_products');
+  document.getElementById('precios-wrap').innerHTML=pg.length===0?'<div class="loading">Sin resultados</div>'
+    :`<table><thead><tr><th>Producto</th><th>Unidad</th><th>Precio vigente</th><th>Últ. actualización</th><th>Acciones</th></tr></thead><tbody>${pg.map(p=>{
+      // Last price update from historial_precios
+      const hist=historialPrecios.filter(h=>h.producto_nombre===p.nombre).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      const last=hist[0];
+      return`<tr>
+        <td><strong>${p.nombre}</strong></td>
+        <td style="color:var(--text2)">${p.unidad}</td>
+        <td><strong style="font-size:16px">${fmtP(p.precio)}</strong></td>
+        <td style="color:var(--text2);font-size:12px">${last?last.fecha+' · '+last.motivo:'—'}</td>
+        <td style="display:flex;gap:6px">
+          ${canEdit?`<button class="btn sm green" onclick="abrirPrecioModal('${p.id}')">Actualizar</button>`:''}
+          <button class="btn sm" onclick="verHistorialPrecios('${p.nombre}')">Historial</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  makePager(list.length,preciosPg,'setPreciosPg','precios-pager');
+}
+function setPreciosPg(n){preciosPg=n;renderPrecios();}
+
+function abrirPrecioModal(prodId){
+  if(!can('edit_products')){showToast('Sin permiso','err');return;}
+  const p=productos.find(x=>x.id===prodId);
+  if(!p)return;
+  editingPrecioProdId=prodId;
+  document.getElementById('modal-precio-sub').textContent=`Producto: ${p.nombre} · Precio actual: ${fmtP(p.precio)}`;
+  document.getElementById('nuevo-precio').value=p.precio||'';
+  document.getElementById('precio-motivo').value='';
+  document.getElementById('modal-precio').classList.add('open');
+}
+
+async function confirmarPrecio(){
+  if(!editingPrecioProdId)return;
+  const p=productos.find(x=>x.id===editingPrecioProdId);
+  const nuevoPrecio=parseFloat(document.getElementById('nuevo-precio').value)||0;
+  const motivo=document.getElementById('precio-motivo').value.trim()||'Actualización manual';
+  if(nuevoPrecio<0){showToast('El precio debe ser mayor o igual a 0','err');return;}
+
+  // Save to historial_precios
+  await db.from('historial_precios').insert({
+    producto_id:editingPrecioProdId,
+    producto_nombre:p.nombre,
+    precio_anterior:p.precio,
+    precio_nuevo:nuevoPrecio,
+    fecha:todayStr(),
+    motivo,
+    usuario_email:currentUser.email,
+    usuario_nombre:currentUserName
+  });
+  // Update product price
+  await db.from('productos').update({precio:nuevoPrecio}).eq('id',editingPrecioProdId);
+  await loadProductos();
+  await loadHistorialPrecios();
+  cerrarModal('modal-precio');
+  renderPrecios();
+  showToast('✓ Precio actualizado: '+fmtP(nuevoPrecio),'ok');
+}
+
+function verHistorialPrecios(nombreProd){
+  const hist=historialPrecios.filter(h=>h.producto_nombre===nombreProd).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  document.getElementById('prec-hist-title').textContent='Historial de precios · '+nombreProd;
+  document.getElementById('prec-hist-box').style.display='';
+  document.getElementById('prec-hist-wrap').innerHTML=hist.length===0
+    ?'<div class="loading">Sin historial de precios registrado</div>'
+    :`<table><thead><tr><th>Fecha</th><th>Precio anterior</th><th>Precio nuevo</th><th>Motivo</th><th>Usuario</th></tr></thead><tbody>
+    ${hist.map(h=>`<tr>
+      <td style="font-family:monospace;font-size:12px">${h.fecha}</td>
+      <td style="color:var(--text3)">${fmtP(h.precio_anterior)}</td>
+      <td><strong style="color:var(--green)">${fmtP(h.precio_nuevo)}</strong></td>
+      <td style="color:var(--text2)">${h.motivo||'—'}</td>
+      <td style="font-size:12px;color:var(--text3)">${h.usuario_nombre||h.usuario_email||'—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+  document.getElementById('prec-hist-box').scrollIntoView({behavior:'smooth'});
+}
+
+// ── CIERRE MENSUAL ─────────────────────────────────────
+function initCierreAnios(){
+  const anioActual=new Date().getFullYear();
+  const sel=document.getElementById('cierre-anio');
+  sel.innerHTML='';
+  for(let y=anioActual;y>=anioActual-5;y--){
+    const opt=document.createElement('option');opt.value=y;opt.textContent=y;sel.appendChild(opt);
+  }
+  // Set current month
+  const mesActual=String(new Date().getMonth()+1).padStart(2,'0');
+  document.getElementById('cierre-mes').value=mesActual;
+  renderCierrePreview();
+}
+
+function renderCierrePreview(){
+  const anio=document.getElementById('cierre-anio').value;
+  const mes=document.getElementById('cierre-mes').value;
+  if(!anio||!mes)return;
+  const desde=`${anio}-${mes}-01`;
+  const hasta=`${anio}-${mes}-31`;
+
+  // Get last entry price per product in this month
+  const entradas=transacciones.filter(t=>t.tipo==='Entrada'&&t.fecha>=desde&&t.fecha<=hasta&&t.precio>0);
+  const preciosPorProd={};
+  entradas.forEach(t=>{
+    if(!preciosPorProd[t.producto_nombre]||t.fecha>preciosPorProd[t.producto_nombre].fecha){
+      preciosPorProd[t.producto_nombre]={precio:t.precio,fecha:t.fecha};
+    }
+  });
+
+  const keys=Object.keys(preciosPorProd).sort();
+  const wrap=document.getElementById('cierre-preview-wrap');
+  if(!keys.length){wrap.innerHTML='<div style="color:var(--text3);font-size:13px">No hay entradas con precio en este período.</div>';return;}
+
+  wrap.innerHTML=`<div class="cierre-preview"><table><thead><tr><th>Producto</th><th>Últ. precio entrada</th><th>Precio actual</th><th>Fecha entrada</th></tr></thead><tbody>
+    ${keys.map(k=>{
+      const p=productos.find(x=>x.nombre===k);
+      const esDistinto=p&&p.precio!==preciosPorProd[k].precio;
+      return`<tr ${esDistinto?'style="background:var(--orange-l)"':''}><td><strong>${k}</strong></td><td style="color:var(--green);font-weight:600">${fmtP(preciosPorProd[k].precio)}</td><td style="color:var(--text2)">${p?fmtP(p.precio):'—'}</td><td style="font-size:12px;color:var(--text3)">${preciosPorProd[k].fecha}</td></tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+}
+
+async function ejecutarCierre(){
+  if(!can('cierre')){showToast('Sin permiso para realizar cierres','err');return;}
+  const anio=document.getElementById('cierre-anio').value;
+  const mes=document.getElementById('cierre-mes').value;
+  if(!anio||!mes){showToast('Seleccioná año y mes','err');return;}
+  const mesNombre=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][parseInt(mes)];
+  if(!confirm(`¿Ejecutar cierre de ${mesNombre} ${anio}?\n\nEsto actualizará los precios de los consumos del mes y registrará los nuevos precios de los productos.`))return;
+
+  const desde=`${anio}-${mes}-01`;
+  const hasta=`${anio}-${mes}-31`;
+
+  // 1. Calcular último precio de entrada por producto en el mes
+  const entradas=transacciones.filter(t=>t.tipo==='Entrada'&&t.fecha>=desde&&t.fecha<=hasta&&t.precio>0);
+  const preciosPorProd={};
+  entradas.forEach(t=>{
+    if(!preciosPorProd[t.producto_nombre]||t.fecha>preciosPorProd[t.producto_nombre].fecha){
+      preciosPorProd[t.producto_nombre]={precio:t.precio,fecha:t.fecha};
+    }
+  });
+
+  if(!Object.keys(preciosPorProd).length){showToast('No hay entradas con precio en este período','err');return;}
+
+  showToast('Ejecutando cierre…');
+
+  // 2. Actualizar precio_cierre en consumos del mes (Cocina, Panaderia, Salida)
+  const consumos=transacciones.filter(t=>['Cocina','Panaderia','Salida'].includes(t.tipo)&&t.fecha>=desde&&t.fecha<=hasta);
+  let updConsumosOk=0;
+  for(const t of consumos){
+    if(preciosPorProd[t.producto_nombre]){
+      const{error}=await db.from('transacciones').update({precio_cierre:preciosPorProd[t.producto_nombre].precio}).eq('id',t.id);
+      if(!error)updConsumosOk++;
+    }
+  }
+
+  // 3. Actualizar precio vigente de los productos y guardar historial
+  let updProdOk=0;
+  for(const [nombre,info] of Object.entries(preciosPorProd)){
+    const prod=productos.find(p=>p.nombre===nombre);
+    if(!prod)continue;
+    await db.from('historial_precios').insert({
+      producto_id:prod.id,
+      producto_nombre:nombre,
+      precio_anterior:prod.precio,
+      precio_nuevo:info.precio,
+      fecha:hasta,
+      motivo:`Cierre mensual ${mesNombre} ${anio}`,
+      usuario_email:currentUser.email,
+      usuario_nombre:currentUserName
+    });
+    const{error}=await db.from('productos').update({precio:info.precio}).eq('id',prod.id);
+    if(!error)updProdOk++;
+  }
+
+  // 4. Registrar el cierre en tabla cierres_mensuales
+  await db.from('cierres_mensuales').insert({
+    anio:parseInt(anio),mes:parseInt(mes),
+    mes_nombre:mesNombre,
+    productos_actualizados:updProdOk,
+    consumos_valorizados:updConsumosOk,
+    ejecutado_por:currentUserName,
+    ejecutado_email:currentUser.email,
+    fecha_ejecucion:todayStr()
+  });
+
+  await loadProductos();
+  await loadTransacciones();
+  await loadHistorialPrecios();
+  renderCierreLog();
+  showToast(`✓ Cierre ${mesNombre} ${anio}: ${updProdOk} precios actualizados, ${updConsumosOk} consumos valorizados`,'ok');
+}
+
+async function renderCierreLog(){
+  const{data,error}=await db.from('cierres_mensuales').select('*').order('anio',{ascending:false}).order('mes',{ascending:false});
+  const wrap=document.getElementById('cierre-log-wrap');
+  if(error||!data||!data.length){wrap.innerHTML='<div class="loading">Sin cierres registrados aún</div>';return;}
+  wrap.innerHTML=`<table><thead><tr><th>Período cerrado</th><th>Productos actualizados</th><th>Consumos valorizados</th><th>Ejecutado por</th><th>Fecha ejecución</th></tr></thead><tbody>
+    ${data.map(c=>`<tr>
+      <td><strong>${c.mes_nombre} ${c.anio}</strong></td>
+      <td><span class="badge b-green">${c.productos_actualizados}</span></td>
+      <td><span class="badge b-blue">${c.consumos_valorizados}</span></td>
+      <td style="color:var(--text2)">${c.ejecutado_por||c.ejecutado_email||'—'}</td>
+      <td style="font-size:12px;font-family:monospace;color:var(--text3)">${c.fecha_ejecucion||'—'}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── IMPORTAR EXCEL ────────────────────────────────────
+function abrirImport(){
+  if(!can('register_mov')){showToast('Sin permiso para importar','err');return;}
+  importRows=[];
+  document.getElementById('import-preview').style.display='none';
+  document.getElementById('btn-import').disabled=true;
+  document.getElementById('file-input').value='';
+  document.getElementById('modal-import').classList.add('open');
+}
+function onFileDrop(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('drag');if(e.dataTransfer.files[0])processExcelFile(e.dataTransfer.files[0]);}
+function onFileSelect(e){if(e.target.files[0])processExcelFile(e.target.files[0]);}
+
+function processExcelFile(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!raw.length){showToast('El archivo está vacío o no se pudo leer','err');return;}
+      const norm=s=>String(s).toLowerCase().replace(/[\s_\-\.]/g,'');
+      const colMap={};
+      Object.keys(raw[0]).forEach(k=>{colMap[norm(k)]=k;});
+      const get=(row,...cands)=>{for(const c of cands){const k=colMap[norm(c)];if(k!==undefined)return row[k];}return'';};
+      const tipoMap={'1':'Entrada','entradas':'Entrada','entrada':'Entrada','2':'Salida','salidas':'Salida','salida':'Salida','3':'Cocina','cocina':'Cocina','4':'Panaderia','panaderia':'Panaderia','panadería':'Panaderia','5':'Vencidos','vencidos':'Vencidos','6':'Ajuste','ajustes':'Ajuste','ajuste':'Ajuste','7':'Mal estado','9':'Stock Inicial'};
+      const rows=[],errors=[];
+      raw.forEach((row,i)=>{
+        let prod=String(get(row,'producto_nombre','producto','Producto','Descripcion Producto Buscar en lista','descripcion producto')||'').trim();
+        if(!prod||prod.length<2)return;
+        let fechaRaw=get(row,'fecha','Fecha','date');
+        let fecha='';
+        if(fechaRaw instanceof Date){fecha=fechaRaw.toISOString().split('T')[0];}
+        else if(typeof fechaRaw==='number'){const d=new Date(Math.round((fechaRaw-25569)*86400*1000));fecha=d.toISOString().split('T')[0];}
+        else if(typeof fechaRaw==='string'&&fechaRaw.length>=6){const c=fechaRaw.replace(/\//g,'-');const p=new Date(c);if(!isNaN(p))fecha=p.toISOString().split('T')[0];}
+        if(!fecha||fecha.length!==10){errors.push(`Fila ${i+2}: fecha inválida`);return;}
+        let tipoRaw=String(get(row,'tipo','Tipo Movim.','tipo_mov','TipoMovim','tipo movim')||'').trim();
+        const tipoFinal=tipoMap[tipoRaw.toLowerCase()]||tipoMap[tipoRaw]||(tipoRaw||'Entrada');
+        let cant=parseFloat(get(row,'cantidad','Carga de Unidades','cargadeunidades','CargaDeUnidades')||0);
+        if(!cant||isNaN(cant)||cant<=0){errors.push(`Fila ${i+2}: cantidad inválida`);return;}
+        let precio=parseFloat(get(row,'precio','Precio de Factura','preciofactura','PrecioDeFactura','precio_factura')||0);
+        let conc=String(get(row,'concepto','Conceptos Buscar en Lista','conceptos','Concepto')||'Importado').trim();
+        rows.push({producto_nombre:prod,fecha,tipo:tipoFinal,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio});
+      });
+      importRows=rows;
+      document.getElementById('import-label').textContent=`${rows.length} registros listos para importar`;
+      document.getElementById('import-errors').textContent=errors.length?`⚠️ ${errors.length} filas ignoradas`:'';
+      document.getElementById('import-preview').style.display='';
+      const prev=rows.slice(0,6);
+      document.getElementById('import-table-wrap').innerHTML=rows.length===0
+        ?'<div style="padding:16px;text-align:center;color:var(--text3)">No se encontraron filas válidas.</div>'
+        :`<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th></tr></thead><tbody>
+          ${prev.map(r=>`<tr><td>${r.producto_nombre}</td><td style="font-family:monospace">${r.fecha}</td><td>${tipoBadge(r.tipo)}</td><td style="color:var(--text2)">${r.concepto}</td><td>${fmt(r.cantidad)}</td></tr>`).join('')}
+          ${rows.length>6?`<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:8px">… y ${rows.length-6} más</td></tr>`:''}
+        </tbody></table>`;
+      document.getElementById('btn-import').disabled=rows.length===0;
+    }catch(err){showToast('Error leyendo el archivo: '+err.message,'err');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function confirmarImport(){
+  if(!importRows.length)return;
+  const btn=document.getElementById('btn-import');
+  btn.disabled=true;btn.textContent=`Importando ${importRows.length} registros…`;
+  let ok=0,fail=0;
+  const BATCH=200;
+  for(let i=0;i<importRows.length;i+=BATCH){
+    const batch=importRows.slice(i,i+BATCH).map(r=>({...r,usuario_email:'importado@sistema.com',usuario_nombre:'Importado Excel'}));
+    const{error}=await db.from('transacciones').insert(batch);
+    if(error){fail+=batch.length;console.error(error);}else ok+=batch.length;
+  }
+  await loadTransacciones();
+  buildPeriodoSelect();
+  cerrarModal('modal-import');
+  btn.disabled=false;btn.textContent='Importar registros';
+  showToast(`✓ ${ok} registros importados${fail?` · ${fail} con error`:''}`,ok>0?'ok':'err');
+}
+
+// ── PRODUCTOS ─────────────────────────────────────────
+function renderProductos(){
+  const q=document.getElementById('prod-q').value.toLowerCase();
+  let list=productos.filter(p=>p.nombre.toLowerCase().includes(q));
+  list.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const pg=list.slice((prodPg-1)*PAGE,prodPg*PAGE);
+  const canEdit=can('edit_products');
+  document.getElementById('prod-wrap').innerHTML=pg.length===0?'<div class="loading">Sin resultados</div>'
+    :`<table><thead><tr><th>Nombre</th><th>Unidad</th><th>Stock</th><th>Stock mínimo</th><th>Precio</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${pg.map(p=>{const s=stockStatus(p);return`<tr><td><strong>${p.nombre}</strong></td><td style="color:var(--text2)">${p.unidad}</td><td><span class="dot ${s.dot}"></span>${fmt(p.stock)}</td><td>${p.stock_minimo>0?fmt(p.stock_minimo):'<span style="color:var(--text3)">—</span>'}</td><td>${fmtP(p.precio)}</td>${canEdit?`<td><button class="btn sm" onclick="abrirModal('${p.id}')">Editar</button></td>`:''}</tr>`;}).join('')}</tbody></table>`;
+  makePager(list.length,prodPg,'setProdPg','prod-pager');
+}
+function setProdPg(n){prodPg=n;renderProductos();}
+
+function abrirModal(id){
+  if(!can('edit_products')){showToast('Sin permiso para editar productos','err');return;}
+  editingProdId=id;
+  if(!id){document.getElementById('modal-title').textContent='Nuevo producto';['ep-nombre','ep-unidad','ep-precio','ep-minimo'].forEach(i=>document.getElementById(i).value='');}
+  else{const p=productos.find(x=>x.id===id);document.getElementById('modal-title').textContent='Editar producto';document.getElementById('ep-nombre').value=p.nombre;document.getElementById('ep-unidad').value=p.unidad;document.getElementById('ep-precio').value=p.precio;document.getElementById('ep-minimo').value=p.stock_minimo;}
+  document.getElementById('modal-prod').classList.add('open');
+}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+
+async function guardarProducto(){
+  if(!can('edit_products')){showToast('Sin permiso','err');return;}
+  const nombre=document.getElementById('ep-nombre').value.trim();
+  const unidad=document.getElementById('ep-unidad').value.trim()||'Un';
+  const precio=parseFloat(document.getElementById('ep-precio').value)||0;
+  const minimo=parseFloat(document.getElementById('ep-minimo').value)||0;
+  if(!nombre){showToast('Ingresá un nombre','err');return;}
+  if(!editingProdId)await db.from('productos').insert({nombre,unidad,stock:0,precio,stock_minimo:minimo});
+  else await db.from('productos').update({nombre,unidad,precio,stock_minimo:minimo}).eq('id',editingProdId);
+  await loadProductos();cerrarModal('modal-prod');renderProductos();
+  showToast('✓ Producto guardado','ok');
+}
+
+// ── ADMIN ─────────────────────────────────────────────
+// ── ADMIN: CREAR USUARIO ─────────────────────────────
+let nuRoleSelected = 'usuario';
+
+function abrirModalNuevoUsuario(){
+  document.getElementById('nu-nombre').value='';
+  document.getElementById('nu-email').value='';
+  document.getElementById('nu-pass').value='';
+  document.getElementById('nu-error').style.display='none';
+  nuRoleSelected='usuario';
+  document.querySelectorAll('#nu-role-selector .role-opt').forEach(el=>{
+    el.classList.remove('sel-admin','sel-usuario','sel-lectura');
+  });
+  document.querySelector('#nu-role-selector .role-opt:first-child').classList.add('sel-usuario');
+  document.getElementById('modal-nuevo-user').classList.add('open');
+}
+
+function selectNuRole(role, el){
+  nuRoleSelected=role;
+  document.querySelectorAll('#nu-role-selector .role-opt').forEach(b=>{
+    b.classList.remove('sel-admin','sel-usuario','sel-lectura');
+  });
+  el.classList.add('sel-'+role);
+}
+
+function generarPass(){
+  const chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$';
+  let pass='';
+  for(let i=0;i<10;i++) pass+=chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('nu-pass').value=pass;
+}
+
+async function crearUsuarioAdmin(){
+  const nombre=document.getElementById('nu-nombre').value.trim();
+  const email=document.getElementById('nu-email').value.trim();
+  const pass=document.getElementById('nu-pass').value.trim();
+  const errEl=document.getElementById('nu-error');
+  errEl.style.display='none';
+
+  if(!nombre||!email||!pass){errEl.textContent='Completá todos los campos.';errEl.style.display='';return;}
+  if(pass.length<6){errEl.textContent='La contrasena debe tener al menos 6 caracteres.';errEl.style.display='';return;}
+
+  const btn=document.getElementById('btn-crear-user');
+  btn.disabled=true;btn.textContent='Creando…';
+
+  try{
+    // Guardar en pending_users — el registro en Auth se hace cuando el usuario
+    // inicia sesion por primera vez con su contrasena provisoria
+    const{error:pendErr}=await db.from('pending_users').insert({
+      email,
+      nombre,
+      role: nuRoleSelected,
+      temp_password: pass,
+      created_by: currentUserName,
+      created_at: new Date().toISOString()
+    });
+
+    if(pendErr){
+      errEl.textContent='Error al guardar: '+pendErr.message;
+      errEl.style.display='';
+      btn.disabled=false;btn.textContent='Crear usuario';
+      return;
+    }
+
+    btn.disabled=false;btn.textContent='Crear usuario';
+    cerrarModal('modal-nuevo-user');
+    showToast('✓ Usuario preparado: '+nombre,'ok');
+    loadAdminUsers();
+  }catch(e){
+    errEl.textContent='Error inesperado: '+e.message;
+    errEl.style.display='';
+    btn.disabled=false;btn.textContent='Crear usuario';
+  }
+}
+
+// ── ADMIN: ELIMINAR PENDIENTE ─────────────────────────
+async function eliminarPendiente(id){
+  if(!confirm('¿Eliminar este usuario pendiente?'))return;
+  await db.from('pending_users').delete().eq('id',id);
+  showToast('Usuario pendiente eliminado','ok');
+  loadAdminUsers();
+}
+
+// ── CAMBIO DE CONTRASEÑA (primer ingreso) ─────────────
+async function checkMustChangePassword(){
+  // Check both Auth metadata and user_roles flag
+  const metaFlag = currentUser?.user_metadata?.must_change_password === true;
+  // Also check user_roles
+  let roleFlag = false;
+  const{data:rd}=await db.from('user_roles').select('must_change_password').eq('user_id',currentUser.id).limit(1);
+  if(rd&&rd.length>0) roleFlag = rd[0].must_change_password === true;
+
+  if(!metaFlag && !roleFlag) return;
+  // Show modal — no close button, blocks UI
+  document.getElementById('modal-cambio-pass').classList.add('open');
+}
+
+async function confirmarCambioPass(){
+  const nueva=document.getElementById('cp-nueva').value;
+  const repetir=document.getElementById('cp-repetir').value;
+  const errEl=document.getElementById('cp-error');
+  errEl.style.display='none';
+
+  if(!nueva||!repetir){errEl.textContent='Completá ambos campos.';errEl.style.display='';return;}
+  if(nueva.length<6){errEl.textContent='La contraseña debe tener al menos 6 caracteres.';errEl.style.display='';return;}
+  if(nueva!==repetir){errEl.textContent='Las contraseñas no coinciden.';errEl.style.display='';return;}
+
+  const btn=document.getElementById('btn-cambiar-pass');
+  btn.disabled=true;btn.textContent='Guardando…';
+
+  const{error}=await db.auth.updateUser({
+    password: nueva,
+    data: {must_change_password: false}
+  });
+
+  if(error){
+    errEl.textContent='Error al cambiar contraseña: '+error.message;
+    errEl.style.display='';
+    btn.disabled=false;btn.textContent='Guardar contraseña y continuar';
+    return;
+  }
+
+  // Also clear flag in user_roles
+  await db.from('user_roles').update({must_change_password:false}).eq('user_id',currentUser.id);
+
+  btn.disabled=false;btn.textContent='Guardar contraseña y continuar';
+  document.getElementById('modal-cambio-pass').classList.remove('open');
+  showToast('✓ Contraseña actualizada. ¡Bienvenido!','ok');
+}
+
+async function loadAdminUsers(){
+  if(currentRole!=='admin')return;
+  const wrap=document.getElementById('admin-users-wrap');
+
+  // Load active users
+  const{data:activeUsers,error:activeErr}=await db.from('user_roles').select('*').order('user_name');
+  // Load pending users (not yet registered in Auth)
+  const{data:pendUsers,error:pendErr}=await db.from('pending_users').select('*').order('nombre');
+
+  if(activeErr){wrap.innerHTML=`<div class="loading">Error: ${activeErr.message}</div>`;return;}
+
+  const active=activeUsers||[];
+  const pending=pendUsers||[];
+
+  if(!active.length&&!pending.length){
+    wrap.innerHTML='<div class="loading">Sin usuarios registrados</div>';return;
+  }
+
+  let html='<div class="admin-users-grid" style="padding:18px">';
+
+  // Active users
+  active.forEach(u=>{
+    const ini=(u.user_name||u.user_email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const rol=u.role||'sin-rol';
+    const esActual=u.user_id===currentUser.id;
+    html+=`<div class="admin-user-card">
+      <div class="admin-user-avatar" style="background:${rol==='admin'?'var(--purple)':rol==='usuario'?'var(--green)':'var(--text3)'}">${ini}</div>
+      <div class="admin-user-info">
+        <div class="admin-user-name">${u.user_name||'—'} ${esActual?'<span style="font-size:11px;color:var(--text3)">(vos)</span>':''}</div>
+        <div class="admin-user-email">${u.user_email||'—'}</div>
+        ${u.must_change_password?'<div style="font-size:11px;margin-top:3px;color:var(--orange-t);font-weight:500">⚠ Debe cambiar contraseña</div>':''}
+      </div>
+      <div class="role-selector">
+        <div class="role-opt ${rol==='admin'?'sel-admin':''}" onclick="setUserRole('${u.user_id}','admin',this)">Admin</div>
+        <div class="role-opt ${rol==='usuario'?'sel-usuario':''}" onclick="setUserRole('${u.user_id}','usuario',this)">Usuario</div>
+        <div class="role-opt ${rol==='lectura'||!u.role?'sel-lectura':''}" onclick="setUserRole('${u.user_id}','lectura',this)">Lectura</div>
+      </div>
+    </div>`;
+  });
+
+  // Pending users (pre-loaded by admin, not yet logged in)
+  pending.forEach(p=>{
+    const ini=(p.nombre||p.email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const rol=p.role||'usuario';
+    html+=`<div class="admin-user-card" style="border-color:var(--orange);background:var(--orange-l)">
+      <div class="admin-user-avatar" style="background:var(--orange)">${ini}</div>
+      <div class="admin-user-info" style="flex:1">
+        <div class="admin-user-name">${p.nombre||'—'}</div>
+        <div class="admin-user-email">${p.email||'—'}</div>
+        <div style="font-size:11px;margin-top:3px;color:var(--orange-t);font-weight:500">⏳ Pendiente de primer ingreso · Rol: ${rol}</div>
+      </div>
+      <button class="btn sm" style="border-color:var(--red);color:var(--red)" onclick="eliminarPendiente('${p.id}')">✕ Eliminar</button>
+    </div>`;
+  });
+
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+async function setUserRole(userId,newRole,btn){
+  if(currentRole!=='admin'){showToast('Solo admins pueden cambiar roles','err');return;}
+  // Visual feedback
+  btn.closest('.role-selector').querySelectorAll('.role-opt').forEach(b=>{
+    b.classList.remove('sel-admin','sel-usuario','sel-lectura');
+  });
+  btn.classList.add('sel-'+newRole);
+  const{error}=await db.from('user_roles').update({role:newRole}).eq('user_id',userId);
+  if(error){showToast('Error: '+error.message,'err');loadAdminUsers();return;}
+  showToast('✓ Rol actualizado','ok');
+}
+
+// ── ADMIN: EDITAR / ELIMINAR TRANSACCIÓN ─────────────
+let editingTxnId=null;
+
+function abrirEditarTransaccion(id){
+  const t=transacciones.find(x=>x.id===id);
+  if(!t)return;
+  editingTxnId=id;
+  document.getElementById('edit-txn-sub').textContent=`Producto: ${t.producto_nombre}`;
+  document.getElementById('et-fecha').value=t.fecha||'';
+  document.getElementById('et-tipo').value=t.tipo||'Entrada';
+  document.getElementById('et-conc').value=t.concepto||'Consumo Interno';
+  document.getElementById('et-cant').value=t.cantidad||'';
+  document.getElementById('et-precio').value=t.precio||'';
+  document.getElementById('modal-edit-txn').classList.add('open');
+}
+
+async function confirmarEditarTransaccion(){
+  if(!editingTxnId)return;
+  const old=transacciones.find(x=>x.id===editingTxnId);
+  if(!old)return;
+  const fecha=document.getElementById('et-fecha').value;
+  const tipo=document.getElementById('et-tipo').value;
+  const conc=document.getElementById('et-conc').value;
+  const cant=parseFloat(document.getElementById('et-cant').value)||0;
+  const precio=parseFloat(document.getElementById('et-precio').value)||0;
+  if(!fecha){showToast('Seleccioná una fecha','err');return;}
+  if(cant<=0){showToast('Cantidad inválida','err');return;}
+
+  // Revertir efecto del movimiento original y aplicar el nuevo sobre el stock
+  const prod=productos.find(p=>p.nombre===old.producto_nombre);
+  if(prod){
+    const entradaOld=old.tipo==='Entrada'||old.tipo==='Ajuste';
+    const entradaNew=tipo==='Entrada'||tipo==='Ajuste';
+    const stockSinOld=entradaOld?prod.stock-old.cantidad:prod.stock+old.cantidad;
+    const nuevoStock=entradaNew?stockSinOld+cant:stockSinOld-cant;
+    await db.from('productos').update({stock:Math.round(nuevoStock*100)/100}).eq('id',prod.id);
+  }
+
+  const{error}=await db.from('transacciones').update({fecha,tipo,concepto:conc,cantidad:cant,precio}).eq('id',editingTxnId);
+  if(error){showToast('Error: '+error.message,'err');return;}
+  await loadProductos();await loadTransacciones();
+  cerrarModal('modal-edit-txn');
+  renderHistorial();
+  showToast('✓ Movimiento actualizado','ok');
+}
+
+async function eliminarTransaccion(id){
+  const t=transacciones.find(x=>x.id===id);
+  if(!t)return;
+  if(!confirm(`¿Eliminar este movimiento?\n\n${t.tipo} · ${t.producto_nombre} · ${fmt(t.cantidad)} · ${t.fecha}`))return;
+
+  // Revertir el efecto sobre el stock
+  const prod=productos.find(p=>p.nombre===t.producto_nombre);
+  if(prod){
+    const esEntrada=t.tipo==='Entrada'||t.tipo==='Ajuste';
+    const nuevoStock=esEntrada?prod.stock-t.cantidad:prod.stock+t.cantidad;
+    await db.from('productos').update({stock:Math.round(nuevoStock*100)/100}).eq('id',prod.id);
+  }
+
+  const{error}=await db.from('transacciones').delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,'err');return;}
+  await loadProductos();await loadTransacciones();
+  renderHistorial();
+  showToast('✓ Movimiento eliminado','ok');
+}
+
+// ── EXPORT ────────────────────────────────────────────
+function exportCSV(type){
+  let csv,name;
+  if(type==='stock'){
+    csv='Producto,Unidad,Stock,Precio,Valor,Estado\n'+productos.map(p=>{const s=stockStatus(p);return`"${p.nombre}",${p.unidad},${p.stock},${p.precio},${(p.stock*p.precio).toFixed(0)},${s.label}`;}).join('\n');
+    name='stock_lecheria.csv';
+  }else if(type==='hist'){
+    csv='Fecha,Periodo,Producto,Tipo,Concepto,Cantidad,Precio Orig.,Precio Cierre,Usuario\n'+transacciones.map(t=>`${t.fecha},"${getPeriodoLabel(getPeriodoKey(t.fecha))}","${t.producto_nombre}",${t.tipo},"${t.concepto||''}",${t.cantidad},${t.precio||0},${t.precio_cierre||''},  "${t.usuario_nombre||t.usuario_email||''}"`).join('\n');
+    name='historial_lecheria.csv';
+  }else if(type==='periodo'){
+    const{desde,hasta}=getPeriodoRange(periodoActivo);
+    const txns=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
+    csv='Fecha,Producto,Tipo,Concepto,Cantidad,Precio,Usuario\n'+txns.map(t=>`${t.fecha},"${t.producto_nombre}",${t.tipo},"${t.concepto||''}",${t.cantidad},${t.precio||0},"${t.usuario_nombre||t.usuario_email||''}"`).join('\n');
+    name=`periodo_${periodoActivo}.csv`;
+  }else if(type==='precios'){
+    csv='Producto,Unidad,Precio Vigente\n'+productos.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p=>`"${p.nombre}","${p.unidad}",${p.precio}`).join('\n');
+    name='precios_lecheria.csv';
+  }
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+}
+
+// ── BOOT ──────────────────────────────────────────────
+db.auth.onAuthStateChange(async(event,session)=>{
+  if(_blockAuthChange) return; // Manual flow in progress, ignore
+  if(event==='INITIAL_SESSION'&&session?.user&&!currentUser){
+    // Solo restaura sesión previa al cargar la página
+    await initApp(session.user);
+  }
+  if(event==='SIGNED_OUT'){
+    currentUser=null;currentRole='';
+    document.getElementById('app-screen').style.display='none';
+    document.getElementById('pending-screen').style.display='none';
+    document.getElementById('auth-screen').style.display='flex';
+  }
+});
+</script>
+</body>
+</html>
