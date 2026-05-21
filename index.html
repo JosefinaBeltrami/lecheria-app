@@ -880,7 +880,8 @@ async function doRegister(){
   try{
     const{data,error}=await db.auth.signUp({email,password:pass,options:{data:{nombre_completo:nombre}}});
     if(error){btn.disabled=false;btn.textContent='Crear cuenta';showAuthError(error.message);return;}
-    // El trigger handle_new_user en Supabase asigna el rol automáticamente
+    // Dar de alta en user_roles con rol usuario por defecto
+    try{await db.from('user_roles').insert({user_id:data.user.id,user_email:email,user_name:nombre,role:'usuario'});}catch(_){}
     await initApp(data.user);
   }catch(e){
     btn.disabled=false;btn.textContent='Crear cuenta';
