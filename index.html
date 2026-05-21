@@ -1826,9 +1826,9 @@ async function loadAdminUsers(){
         ${syncTag}
       </div>
       <div class="role-selector">
-        <div class="role-opt ${rol==='admin'?'sel-admin':''}" onclick="setUserRole('${uid}','admin',this)">Admin</div>
-        <div class="role-opt ${rol==='usuario'?'sel-usuario':''}" onclick="setUserRole('${uid}','usuario',this)">Usuario</div>
-        <div class="role-opt ${rol==='lectura'||!u.role?'sel-lectura':''}" onclick="setUserRole('${uid}','lectura',this)">Lectura</div>
+        <div class="role-opt ${rol==='admin'?'sel-admin':''}" onclick="setUserRole('${uid}','admin',this,'${uemail}','${unombre}')">Admin</div>
+        <div class="role-opt ${rol==='usuario'?'sel-usuario':''}" onclick="setUserRole('${uid}','usuario',this,'${uemail}','${unombre}')">Usuario</div>
+        <div class="role-opt ${rol==='lectura'||!u.role?'sel-lectura':''}" onclick="setUserRole('${uid}','lectura',this,'${uemail}','${unombre}')">Lectura</div>
       </div>
       ${!esActual?`<div style="display:flex;flex-direction:column;gap:5px;margin-left:4px">
         <button class="btn sm teal" onclick="generarNuevaClave('${uid}','${unombre}')" ${!adminDb?'disabled title="Requiere service_role key"':''}>🔑 Nueva clave</button>
@@ -1887,16 +1887,20 @@ function copiarClave(){
   navigator.clipboard.writeText(val).then(()=>showToast('✓ Clave copiada al portapapeles','ok'));
 }
 
-async function setUserRole(userId,newRole,btn){
+async function setUserRole(userId,newRole,btn,emailEnc,nombreEnc){
   if(currentRole!=='admin'){showToast('Solo admins pueden cambiar roles','err');return;}
   // Visual feedback
   btn.closest('.role-selector').querySelectorAll('.role-opt').forEach(b=>{
     b.classList.remove('sel-admin','sel-usuario','sel-lectura');
   });
   btn.classList.add('sel-'+newRole);
-  const{error}=await db.from('user_roles').update({role:newRole}).eq('user_id',userId);
+  const email=decodeURIComponent(emailEnc||'');
+  const nombre=decodeURIComponent(nombreEnc||'');
+  // Upsert: inserta si no existe, actualiza si ya existe — resuelve usuarios fuera de sincronía
+  const{error}=await db.from('user_roles').upsert({user_id:userId,user_email:email,user_name:nombre,role:newRole},{onConflict:'user_id'});
   if(error){showToast('Error: '+error.message,'err');loadAdminUsers();return;}
   showToast('✓ Rol actualizado','ok');
+  loadAdminUsers(); // Refresca para quitar aviso de sincronía si corresponde
 }
 
 // ── ADMIN: EDITAR / ELIMINAR TRANSACCIÓN ─────────────
