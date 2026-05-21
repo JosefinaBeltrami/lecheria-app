@@ -1896,11 +1896,20 @@ async function setUserRole(userId,newRole,btn,emailEnc,nombreEnc){
   btn.classList.add('sel-'+newRole);
   const email=decodeURIComponent(emailEnc||'');
   const nombre=decodeURIComponent(nombreEnc||'');
-  // Upsert: inserta si no existe, actualiza si ya existe — resuelve usuarios fuera de sincronía
-  const{error}=await db.from('user_roles').upsert({user_id:userId,user_email:email,user_name:nombre,role:newRole},{onConflict:'user_id'});
+  let error;
+  if(adminDb){
+    // adminDb saltea RLS: upsert — crea el registro si no existe, actualiza si existe
+    ({error}=await adminDb.from('user_roles').upsert(
+      {user_id:userId,user_email:email,user_name:nombre,role:newRole},
+      {onConflict:'user_id'}
+    ));
+  } else {
+    // Sin service key: solo actualiza (RLS permite update pero no insert)
+    ({error}=await db.from('user_roles').update({role:newRole}).eq('user_id',userId));
+  }
   if(error){showToast('Error: '+error.message,'err');loadAdminUsers();return;}
   showToast('✓ Rol actualizado','ok');
-  loadAdminUsers(); // Refresca para quitar aviso de sincronía si corresponde
+  loadAdminUsers();
 }
 
 // ── ADMIN: EDITAR / ELIMINAR TRANSACCIÓN ─────────────
