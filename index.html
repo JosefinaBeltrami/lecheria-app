@@ -697,16 +697,32 @@ tr:hover td{background:#FAFAF7;}
   </div>
 </div>
 
+<!-- MODAL NUEVA CLAVE GENERADA (admin) -->
+<div class="overlay" id="modal-nueva-clave" onclick="cerrarModal('modal-nueva-clave')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    <div class="modal-title">🔑 Nueva clave generada</div>
+    <div class="modal-sub">Compartí esta clave con <strong id="nueva-clave-nombre"></strong>. Solo se muestra una vez.</div>
+    <div style="background:var(--surface2);border:2px dashed var(--border2);border-radius:var(--rs);padding:16px;text-align:center;margin-bottom:16px">
+      <div style="font-family:monospace;font-size:24px;font-weight:700;letter-spacing:3px;color:var(--text)" id="nueva-clave-val"></div>
+    </div>
+    <button class="btn teal" style="width:100%;justify-content:center;margin-bottom:4px" onclick="copiarClave()">📋 Copiar clave</button>
+    <div class="modal-actions"><button class="btn green" onclick="cerrarModal('modal-nueva-clave')">Listo</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const SUPA_URL='https://cyefgpuegyfwtiekqtpx.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5ZWZncHVlZ3lmd3RpZWtxdHB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3Mzg1NzQsImV4cCI6MjA5MzMxNDU3NH0.5QkK4Y-GpLvYtx5ldFLzq4yBses8TtFybR-emY0k5fc';
+const SUPA_SERVICE_KEY=''; // Dashboard → Settings → API → service_role key
 const {createClient}=supabase;
 const db=createClient(SUPA_URL,SUPA_KEY,{
   auth:{persistSession:true,storageKey:'lech_auth'},
   global:{fetch:(...args)=>fetch(...args)}
 });
+// Cliente con permisos de admin (requiere service_role key)
+const adminDb=SUPA_SERVICE_KEY?createClient(SUPA_URL,SUPA_SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false}}):null;
 
 // ── STATE ──────────────────────────────────────────────
 let currentUser=null,currentUserName='',currentRole=''; // admin | usuario | lectura
@@ -1745,44 +1761,83 @@ async function confirmarCambioPass(){
 async function loadAdminUsers(){
   if(currentRole!=='admin')return;
   const wrap=document.getElementById('admin-users-wrap');
+  wrap.innerHTML='<div class="loading"><span class="spinner"></span>Cargando usuarios…</div>';
 
-  // Load active users
-  const{data:activeUsers,error:activeErr}=await db.from('user_roles').select('*').order('user_name');
-  // Load pending users (not yet registered in Auth)
-  const{data:pendUsers,error:pendErr}=await db.from('pending_users').select('*').order('nombre');
+  // 1. Cargar user_roles
+  const{data:roleRows,error:roleErr}=await db.from('user_roles').select('*').order('user_name');
+  if(roleErr){wrap.innerHTML=`<div class="loading">Error: ${roleErr.message}</div>`;return;}
 
-  if(activeErr){wrap.innerHTML=`<div class="loading">Error: ${activeErr.message}</div>`;return;}
+  // 2. Cargar pending_users
+  const{data:pendUsers}=await db.from('pending_users').select('*').order('nombre');
 
-  const active=activeUsers||[];
-  const pending=pendUsers||[];
-
-  if(!active.length&&!pending.length){
-    wrap.innerHTML='<div class="loading">Sin usuarios registrados</div>';return;
+  // 3. Si hay adminDb, traer todos los usuarios de Auth para sincronizar
+  let authUsers=[];
+  if(adminDb){
+    const{data:authData,error:authErr}=await adminDb.auth.admin.listUsers({perPage:1000});
+    if(!authErr&&authData) authUsers=authData.users||[];
   }
 
-  let html='<div class="admin-users-grid" style="padding:18px">';
+  const roles=roleRows||[];
+  const pending=pendUsers||[];
 
-  // Active users
-  active.forEach(u=>{
-    const ini=(u.user_name||u.user_email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  // 4. Construir lista unificada: partir de Auth si está disponible, sino de user_roles
+  let users=[];
+  if(authUsers.length>0){
+    authUsers.forEach(au=>{
+      const rr=roles.find(r=>r.user_id===au.id);
+      users.push({
+        id:au.id,
+        email:au.email,
+        nombre:rr?.user_name||au.user_metadata?.nombre_completo||au.email.split('@')[0],
+        role:rr?.role||null,
+        must_change_password:rr?.must_change_password||false,
+        inAuth:true, inRoles:!!rr
+      });
+    });
+    // Usuarios en user_roles sin entrada en Auth (huérfanos)
+    roles.forEach(r=>{
+      if(!users.find(u=>u.id===r.user_id))
+        users.push({id:r.user_id,email:r.user_email,nombre:r.user_name,role:r.role,inAuth:false,inRoles:true,must_change_password:r.must_change_password||false});
+    });
+  } else {
+    users=roles.map(r=>({id:r.user_id,email:r.user_email,nombre:r.user_name,role:r.role,inAuth:true,inRoles:true,must_change_password:r.must_change_password||false}));
+  }
+  users.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+
+  if(!users.length&&!pending.length){wrap.innerHTML='<div class="loading">Sin usuarios registrados</div>';return;}
+
+  // Aviso si falta service_role key
+  const srvWarn=!adminDb?`<div class="alert alert-warn" style="margin:0 18px 12px">⚠ Completá <strong>SUPA_SERVICE_KEY</strong> en el código para habilitar Eliminar y Generar clave. Encontrala en Supabase → Settings → API → service_role.</div>`:'';
+
+  let html='<div class="admin-users-grid" style="padding:18px">'+srvWarn;
+
+  users.forEach(u=>{
+    const ini=(u.nombre||u.email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const rol=u.role||'sin-rol';
-    const esActual=u.user_id===currentUser.id;
+    const esActual=u.id===currentUser.id;
+    const uid=u.id, unombre=encodeURIComponent(u.nombre||u.email||''), uemail=encodeURIComponent(u.email||'');
+    const syncTag=(!u.inAuth||!u.inRoles)?'<div style="font-size:11px;margin-top:3px;color:var(--red-t);font-weight:500">⚠ Fuera de sincronía</div>':'';
     html+=`<div class="admin-user-card">
       <div class="admin-user-avatar" style="background:${rol==='admin'?'var(--purple)':rol==='usuario'?'var(--green)':'var(--text3)'}">${ini}</div>
       <div class="admin-user-info">
-        <div class="admin-user-name">${u.user_name||'—'} ${esActual?'<span style="font-size:11px;color:var(--text3)">(vos)</span>':''}</div>
-        <div class="admin-user-email">${u.user_email||'—'}</div>
+        <div class="admin-user-name">${u.nombre||'—'} ${esActual?'<span style="font-size:11px;color:var(--text3)">(vos)</span>':''}</div>
+        <div class="admin-user-email">${u.email||'—'}</div>
         ${u.must_change_password?'<div style="font-size:11px;margin-top:3px;color:var(--orange-t);font-weight:500">⚠ Debe cambiar contraseña</div>':''}
+        ${syncTag}
       </div>
       <div class="role-selector">
-        <div class="role-opt ${rol==='admin'?'sel-admin':''}" onclick="setUserRole('${u.user_id}','admin',this)">Admin</div>
-        <div class="role-opt ${rol==='usuario'?'sel-usuario':''}" onclick="setUserRole('${u.user_id}','usuario',this)">Usuario</div>
-        <div class="role-opt ${rol==='lectura'||!u.role?'sel-lectura':''}" onclick="setUserRole('${u.user_id}','lectura',this)">Lectura</div>
+        <div class="role-opt ${rol==='admin'?'sel-admin':''}" onclick="setUserRole('${uid}','admin',this)">Admin</div>
+        <div class="role-opt ${rol==='usuario'?'sel-usuario':''}" onclick="setUserRole('${uid}','usuario',this)">Usuario</div>
+        <div class="role-opt ${rol==='lectura'||!u.role?'sel-lectura':''}" onclick="setUserRole('${uid}','lectura',this)">Lectura</div>
       </div>
+      ${!esActual?`<div style="display:flex;flex-direction:column;gap:5px;margin-left:4px">
+        <button class="btn sm teal" onclick="generarNuevaClave('${uid}','${unombre}')" ${!adminDb?'disabled title="Requiere service_role key"':''}>🔑 Nueva clave</button>
+        <button class="btn sm" style="border-color:var(--red);color:var(--red)" onclick="eliminarUsuario('${uid}','${unombre}','${uemail}')" ${!adminDb?'disabled title="Requiere service_role key"':''}>✕ Eliminar</button>
+      </div>`:''}
     </div>`;
   });
 
-  // Pending users (pre-loaded by admin, not yet logged in)
+  // Usuarios pendientes de primer login
   pending.forEach(p=>{
     const ini=(p.nombre||p.email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const rol=p.role||'usuario';
@@ -1799,6 +1854,37 @@ async function loadAdminUsers(){
 
   html+='</div>';
   wrap.innerHTML=html;
+}
+
+async function eliminarUsuario(userId,nombreEnc,emailEnc){
+  const nombre=decodeURIComponent(nombreEnc);
+  const email=decodeURIComponent(emailEnc);
+  if(!adminDb){showToast('Completá SUPA_SERVICE_KEY para esta acción','err');return;}
+  if(!confirm(`¿Eliminar a ${nombre} (${email})?\nSe borrará de la autenticación y de user_roles.`))return;
+  // Borrar de user_roles
+  await db.from('user_roles').delete().eq('user_id',userId);
+  // Borrar de Auth
+  const{error}=await adminDb.auth.admin.deleteUser(userId);
+  if(error){showToast('Error al borrar de Auth: '+error.message,'err');loadAdminUsers();return;}
+  showToast('✓ Usuario eliminado','ok');
+  loadAdminUsers();
+}
+
+async function generarNuevaClave(userId,nombreEnc){
+  const nombre=decodeURIComponent(nombreEnc);
+  if(!adminDb){showToast('Completá SUPA_SERVICE_KEY para esta acción','err');return;}
+  const chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$';
+  let pass='';for(let i=0;i<10;i++)pass+=chars[Math.floor(Math.random()*chars.length)];
+  const{error}=await adminDb.auth.admin.updateUserById(userId,{password:pass});
+  if(error){showToast('Error al actualizar clave: '+error.message,'err');return;}
+  document.getElementById('nueva-clave-nombre').textContent=nombre;
+  document.getElementById('nueva-clave-val').textContent=pass;
+  document.getElementById('modal-nueva-clave').classList.add('open');
+}
+
+function copiarClave(){
+  const val=document.getElementById('nueva-clave-val').textContent;
+  navigator.clipboard.writeText(val).then(()=>showToast('✓ Clave copiada al portapapeles','ok'));
 }
 
 async function setUserRole(userId,newRole,btn){
