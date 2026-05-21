@@ -830,15 +830,15 @@ async function doLogin(){
 
         const newUserId=signupData.user.id;
 
-        // 1. Insertar en user_roles ANTES de cualquier initApp
-        const{error:roleInsErr}=await db.from('user_roles').insert({
+        // 1. Upsert en user_roles (el trigger puede haberlo creado ya)
+        const{error:roleInsErr}=await db.from('user_roles').upsert({
           user_id: newUserId,
           user_email: email,
           user_name: p.nombre,
           role: p.role,
           must_change_password: true
-        });
-        if(roleInsErr) console.error('user_roles insert error:',roleInsErr);
+        },{onConflict:'user_id'});
+        if(roleInsErr) console.error('user_roles upsert error:',roleInsErr);
 
         // 2. Eliminar de pending_users
         await db.from('pending_users').delete().eq('id',p.id);
@@ -880,8 +880,7 @@ async function doRegister(){
   try{
     const{data,error}=await db.auth.signUp({email,password:pass,options:{data:{nombre_completo:nombre}}});
     if(error){btn.disabled=false;btn.textContent='Crear cuenta';showAuthError(error.message);return;}
-    // Insert pending role record (ignore errors)
-    try{await db.from('user_roles').insert({user_id:data.user.id,user_email:email,user_name:nombre,role:null});}catch(_){}
+    // El trigger handle_new_user en Supabase asigna el rol automáticamente
     await initApp(data.user);
   }catch(e){
     btn.disabled=false;btn.textContent='Crear cuenta';
