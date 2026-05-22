@@ -1573,100 +1573,140 @@ function processExcelFile(file){
       const rawArr=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',cellDates:true,raw:true});
       if(rawArr.length<2){showToast('El archivo está vacío o solo tiene encabezados','err');return;}
 
-      // Normalizar: minúsculas, sin tildes (u0300-u036f), sin separadores
+      // Normalizar: minúsculas, sin tildes, sin separadores
       const norm=s=>String(s||'').toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g,'')
         .replace(/[\s_\-\.]/g,'');
 
       const headers=rawArr[0];
+      const colLetter=i=>'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[i]||String(i+1);
+
+      // Buscar por nombre normalizado; si no encuentra, usar posición fallback
       const findIdx=(fallback,...names)=>{
         for(const n of names){
           const idx=headers.findIndex(h=>norm(String(h))===norm(n));
           if(idx>=0)return idx;
         }
+        // también buscar si algún header CONTIENE el nombre
+        for(const n of names){
+          const idx=headers.findIndex(h=>norm(String(h)).includes(norm(n)));
+          if(idx>=0)return idx;
+        }
         return fallback;
       };
 
-      // A=0 B=1 C=2 D=3 E=4 F=5 G=6
-      const iP =findIdx(0,'Producto_Nombre','productonombre','producto');
+      // Mapeo de columnas (fallback por posición A-G)
+      const iP =findIdx(0,'Producto_Nombre','productonombre','producto','nombre');
       const iF =findIdx(1,'Fecha','fecha');
-      const iT =findIdx(2,'Tipo_Movimiento','tipomovimiento','tipo');
+      const iT =findIdx(2,'Tipo_Movimiento','tipomovimiento','tipo','movimiento');
       const iC =findIdx(3,'Concepto','concepto');
-      const iCa=findIdx(4,'Cantidad','cantidad');
+      const iCa=findIdx(4,'Cantidad','cantidad','cant','qty','unidades');
       const iPr=findIdx(5,'Precio','precio');
-      const iO =findIdx(6,'Observacion','observaciones','observacion','descripcionparainformes');
+      const iO =findIdx(6,'Observacion','observaciones','observacion','descripcionparainformes','descripcion','informes');
+
+      // Log de diagnóstico en consola
+      console.log('[Import] Headers detectados:', headers);
+      console.log('[Import] Columnas → Prod:'+colLetter(iP)+' Fecha:'+colLetter(iF)+' Tipo:'+colLetter(iT)+' Concepto:'+colLetter(iC)+' Cant:'+colLetter(iCa)+' Precio:'+colLetter(iPr)+' Obs:'+colLetter(iO));
+      if(rawArr.length>1)console.log('[Import] Fila 2 (raw):', rawArr[1]);
+      if(rawArr.length>2)console.log('[Import] Fila 3 (raw):', rawArr[2]);
 
       const tipoMap={
         'entrada':'Entrada','entradas':'Entrada','1':'Entrada',
         'salida':'Salida','salidas':'Salida','2':'Salida',
         'cocina':'Cocina','3':'Cocina',
-        'panaderia':'Panaderia','4':'Panaderia',
+        'panaderia':'Panadería','4':'Panadería',
         'vencidos':'Vencidos','5':'Vencidos',
         'ajuste':'Ajuste','ajustes':'Ajuste','6':'Ajuste',
         'malestado':'Mal estado','7':'Mal estado'
+      };
+
+      // Parsear número en formato argentino: "1.234,56" o "1234,56" o "1234.56"
+      const parseNum=v=>{
+        if(v===''||v===null||v===undefined)return NaN;
+        if(typeof v==='number')return v;
+        let s=String(v).trim().replace(/\s/g,'');
+        // "1.234,56" → separador de miles es punto, decimal es coma
+        if(/^\d{1,3}(\.\d{3})+(,\d*)?$/.test(s)) s=s.replace(/\./g,'').replace(',','.');
+        else s=s.replace(',','.');
+        return parseFloat(s);
       };
 
       const rows=[];
       let cSinProd=0,cSinFecha=0,cSinCant=0;
       const totalFilas=rawArr.length-1;
 
-      rawArr.slice(1).forEach((row)=>{
+      rawArr.slice(1).forEach((row,ri)=>{
         const cell=col=>{const v=row[col];return(v!==undefined&&v!==null&&v!=='')?v:'';};
 
-        // A: Producto_Nombre
+        // Producto
         const prod=String(cell(iP)||'').trim();
         if(!prod){cSinProd++;return;}
 
-        // B: Fecha
+        // Fecha
         let fechaRaw=cell(iF);
         let fecha='';
         if(fechaRaw instanceof Date&&!isNaN(fechaRaw)){
-          fecha=fechaRaw.toISOString().split('T')[0];
+          // Corregir offset de zona horaria
+          const d=new Date(fechaRaw.getTime()-fechaRaw.getTimezoneOffset()*60000);
+          fecha=d.toISOString().split('T')[0];
         } else if(typeof fechaRaw==='number'&&fechaRaw>1){
           const d=new Date(Math.round((fechaRaw-25569)*86400*1000));
           if(!isNaN(d))fecha=d.toISOString().split('T')[0];
-        } else if(typeof fechaRaw==='string'&&fechaRaw.length>=6){
-          const cleaned=fechaRaw.replace(/\//g,'-').replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1');
-          const p=new Date(cleaned);
-          if(!isNaN(p))fecha=p.toISOString().split('T')[0];
+        } else if(typeof fechaRaw==='string'&&fechaRaw.trim().length>=6){
+          const s=fechaRaw.trim().replace(/\//g,'-');
+          // dd-mm-yyyy → yyyy-mm-dd
+          const m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+          if(m)fecha=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+          else{const p=new Date(s);if(!isNaN(p))fecha=p.toISOString().split('T')[0];}
         }
         if(!fecha||fecha.length!==10){cSinFecha++;return;}
 
-        // C: Tipo_Movimiento
+        // Tipo
         const tipoRaw=String(cell(iT)||'').trim();
         const tipo=tipoMap[norm(tipoRaw)]||(tipoRaw||'Entrada');
 
-        // D: Concepto
+        // Concepto
         const conc=String(cell(iC)||'Importado').trim()||'Importado';
 
-        // E: Cantidad
-        const cant=parseFloat(String(cell(iCa)).replace(',','.'));
-        if(isNaN(cant)||cant<=0){cSinCant++;return;}
+        // Cantidad — acepta 0 y negativos (solo rechaza NaN)
+        const cantRaw=cell(iCa);
+        const cant=parseNum(cantRaw);
+        if(isNaN(cant)){
+          if(ri<5)console.log('[Import] fila '+(ri+2)+' cant inválida → raw:',cantRaw,'col:',colLetter(iCa));
+          cSinCant++;return;
+        }
 
-        // F: Precio
-        const precio=parseFloat(String(cell(iPr)||'0').replace(',','.'))||0;
+        // Precio
+        const precio=parseNum(cell(iPr));
 
-        // G: Observacion (max 20 chars)
+        // Observacion (max 20 chars)
         const obs=String(cell(iO)||'').trim().slice(0,20)||null;
 
         rows.push({producto_nombre:prod,fecha,tipo,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio,observaciones:obs});
       });
 
       importRows=rows;
+
+      // Resumen de columnas detectadas
+      const colInfo=`Prod→${colLetter(iP)} · Fecha→${colLetter(iF)} · Tipo→${colLetter(iT)} · Concepto→${colLetter(iC)} · Cant→${colLetter(iCa)} · Precio→${colLetter(iPr)} · Obs→${colLetter(iO)}`;
       const partsIgn=[];
       if(cSinProd)partsIgn.push(cSinProd+' sin producto');
-      if(cSinFecha)partsIgn.push(cSinFecha+' fecha invalida');
+      if(cSinFecha)partsIgn.push(cSinFecha+' fecha inválida');
       if(cSinCant)partsIgn.push(cSinCant+' sin cantidad');
-      document.getElementById('import-label').textContent=rows.length+' de '+totalFilas+' filas validas';
+
+      document.getElementById('import-label').innerHTML=
+        '<strong>'+rows.length+'</strong> de '+totalFilas+' filas válidas'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:4px">'+colInfo+'</div>';
       document.getElementById('import-errors').textContent=partsIgn.length?'Ignoradas: '+partsIgn.join(' · '):'Sin errores';
       document.getElementById('import-preview').style.display='';
       updateImportTipo();
+
       const prev=rows.slice(0,5);
       document.getElementById('import-table-wrap').innerHTML=!rows.length
-        ?'<div style="padding:16px;text-align:center;color:var(--text3)">No se encontraron filas validas.</div>'
+        ?'<div style="padding:16px;text-align:center;color:var(--text3)">No se encontraron filas válidas.<br><small>Revisá las columnas detectadas arriba.</small></div>'
         :'<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Obs.</th></tr></thead><tbody>'
         +prev.map(function(r){return '<tr><td>'+r.producto_nombre+'</td><td style="font-family:monospace;font-size:12px">'+r.fecha+'</td><td>'+tipoBadge(r.tipo)+'</td><td style="color:var(--text2)">'+r.concepto+'</td><td>'+fmt(r.cantidad)+'</td><td style="color:var(--text2)">'+(r.precio?fmtP(r.precio):'—')+'</td><td style="color:var(--text2);font-size:12px">'+(r.observaciones||'—')+'</td></tr>';}).join('')
-        +(rows.length>5?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:8px">… y '+(rows.length-5)+' mas</td></tr>':'')
+        +(rows.length>5?'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:8px">… y '+(rows.length-5)+' más</td></tr>':'')
         +'</tbody></table>';
       document.getElementById('btn-import').disabled=!rows.length;
     }catch(err){showToast('Error leyendo el archivo: '+err.message,'err');console.error(err);}
