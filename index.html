@@ -375,6 +375,7 @@ tr:hover td{background:#FAFAF7;}
             <select id="mov-conc" style="width:100%"><option>Consumo Interno</option><option>Caritas</option><option>Municipio</option><option>Terceros</option><option>Banco de Alimentos</option><option>Ayuda a la Comunidad</option><option>Fondos Propios</option><option>Empresas</option><option>Ajuste de inventario</option></select>
           </div>
           <div class="form-row"><label class="form-label">Precio unitario (opcional)</label><input type="number" id="mov-precio" min="0" step="1" placeholder="0" style="width:100%"></div>
+          <div class="form-row"><label class="form-label">Observaciones (opcional)</label><input type="text" id="mov-obs" maxlength="20" placeholder="Texto libre (máx. 20 car.)" style="width:100%"></div>
           <button class="btn green" style="width:100%;justify-content:center;padding:12px;font-size:15px;margin-top:6px" id="btn-guardar" onclick="guardarMovimiento()">✓ Guardar movimiento</button>
         </div>
         <div>
@@ -1165,6 +1166,7 @@ async function guardarMovimiento(){
   const fecha=document.getElementById('mov-fecha').value;
   const conc=document.getElementById('mov-conc').value;
   const precio=parseFloat(document.getElementById('mov-precio').value)||0;
+  const obs=document.getElementById('mov-obs').value.trim().slice(0,20);
   if(!prodId){showToast('Seleccioná un producto','err');return;}
   if(!cant||cant<=0){showToast('Ingresá una cantidad válida','err');return;}
   if(!fecha){showToast('Seleccioná una fecha','err');return;}
@@ -1173,12 +1175,12 @@ async function guardarMovimiento(){
   btn.disabled=true;btn.textContent='Guardando…';
   const esI=tipoMov==='Entrada',esA=tipoMov==='Ajuste';
   const nuevoStock=esI?prod.stock+cant:esA?prod.stock+cant:prod.stock-cant;
-  const{error:tErr}=await db.from('transacciones').insert({producto_nombre:prod.nombre,fecha,tipo:tipoMov,concepto:conc,cantidad:cant,precio,usuario_email:currentUser.email,usuario_nombre:currentUserName});
+  const{error:tErr}=await db.from('transacciones').insert({producto_nombre:prod.nombre,fecha,tipo:tipoMov,concepto:conc,cantidad:cant,precio,observaciones:obs||null,usuario_email:currentUser.email,usuario_nombre:currentUserName});
   if(tErr){showToast('Error: '+tErr.message,'err');btn.disabled=false;btn.textContent='✓ Guardar movimiento';return;}
   await db.from('productos').update({stock:Math.round(nuevoStock*100)/100,precio:precio||prod.precio}).eq('id',prodId);
   await loadProductos();await loadTransacciones();
   document.getElementById('mov-prod').value='';document.getElementById('mov-cant').value='';
-  document.getElementById('mov-precio').value='';document.getElementById('stock-info').style.display='none';
+  document.getElementById('mov-precio').value='';document.getElementById('mov-obs').value='';document.getElementById('stock-info').style.display='none';
   btn.disabled=false;btn.textContent='✓ Guardar movimiento';
   showToast('✓ Guardado — '+prod.nombre,'ok');
   renderMovRecientes();buildPeriodoSelect();
@@ -1228,7 +1230,7 @@ function renderHistorial(){
   const pg=list.slice((histPg-1)*PAGE,histPg*PAGE);
   const isAdmin=currentRole==='admin';
   document.getElementById('hist-wrap').innerHTML=pg.length===0?'<div class="loading">Sin resultados</div>'
-    :`<table><thead><tr><th>Fecha</th><th>Período</th><th>Producto</th><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Precio orig.</th><th>Precio cierre</th><th>Usuario</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>${pg.map(t=>`<tr>
+    :`<table><thead><tr><th>Fecha</th><th>Período</th><th>Producto</th><th>Tipo</th><th>Concepto</th><th>Cantidad</th><th>Precio orig.</th><th>Precio cierre</th><th>Observaciones</th><th>Usuario</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>${pg.map(t=>`<tr>
       <td style="font-family:monospace;font-size:12px;color:var(--text2)">${t.fecha||'—'}</td>
       <td><span class="badge b-teal" style="font-size:10px">${getPeriodoLabel(getPeriodoKey(t.fecha))}</span></td>
       <td><strong>${t.producto_nombre}</strong></td>
@@ -1237,6 +1239,7 @@ function renderHistorial(){
       <td style="font-weight:500">${fmt(t.cantidad)}</td>
       <td style="color:var(--text2)">${t.precio?fmtP(t.precio):'—'}</td>
       <td style="color:var(--green);font-weight:500">${t.precio_cierre?fmtP(t.precio_cierre):'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--text2);font-size:12px">${t.observaciones||'<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text2);font-size:12px">${t.usuario_nombre||t.usuario_email||'—'}</td>
       ${isAdmin?`<td><div style="display:flex;gap:5px"><button class="btn sm" onclick="abrirEditarTransaccion('${t.id}')">✏ Editar</button><button class="btn sm" style="border-color:var(--red);color:var(--red)" onclick="eliminarTransaccion('${t.id}')">✕</button></div></td>`:''}
     </tr>`).join('')}</tbody></table>`;
@@ -1985,7 +1988,7 @@ function exportCSV(type){
     csv='Producto,Unidad,Stock,Precio,Valor,Estado\n'+productos.map(p=>{const s=stockStatus(p);return`"${p.nombre}",${p.unidad},${p.stock},${p.precio},${(p.stock*p.precio).toFixed(0)},${s.label}`;}).join('\n');
     name='stock_lecheria.csv';
   }else if(type==='hist'){
-    csv='Fecha,Periodo,Producto,Tipo,Concepto,Cantidad,Precio Orig.,Precio Cierre,Usuario\n'+transacciones.map(t=>`${t.fecha},"${getPeriodoLabel(getPeriodoKey(t.fecha))}","${t.producto_nombre}",${t.tipo},"${t.concepto||''}",${t.cantidad},${t.precio||0},${t.precio_cierre||''},  "${t.usuario_nombre||t.usuario_email||''}"`).join('\n');
+    csv='Fecha,Periodo,Producto,Tipo,Concepto,Cantidad,Precio Orig.,Precio Cierre,Observaciones,Usuario\n'+transacciones.map(t=>`${t.fecha},"${getPeriodoLabel(getPeriodoKey(t.fecha))}","${t.producto_nombre}",${t.tipo},"${t.concepto||''}",${t.cantidad},${t.precio||0},${t.precio_cierre||''},"${t.observaciones||''}","${t.usuario_nombre||t.usuario_email||''}"`).join('\n');
     name='historial_lecheria.csv';
   }else if(type==='periodo'){
     const{desde,hasta}=getPeriodoRange(periodoActivo);
