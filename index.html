@@ -583,8 +583,9 @@ tr:hover td{background:#FAFAF7;}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Importar historial desde Excel</div>
     <div class="modal-sub">
-      Columnas reconocidas (los nombres pueden variar):<br>
-      <strong>producto / fecha / tipo / concepto / cantidad / precio / Descripción para informes</strong>
+      Columnas esperadas (A→G):<br>
+      <strong>Producto_Nombre · Fecha · Tipo_Movimiento · Concepto · Cantidad · Precio · Observacion</strong><br>
+      Las columnas se detectan por nombre o por posición. El resto se descarta.
     </div>
     <!-- Tipo de importación -->
     <div style="display:flex;gap:8px;margin-bottom:16px">
@@ -1563,45 +1564,101 @@ function processExcelFile(file){
     try{
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!raw.length){showToast('El archivo está vacío o no se pudo leer','err');return;}
-      const norm=s=>String(s).toLowerCase().replace(/[\s_\-\.]/g,'');
-      const colMap={};
-      Object.keys(raw[0]).forEach(k=>{colMap[norm(k)]=k;});
-      const get=(row,...cands)=>{for(const c of cands){const k=colMap[norm(c)];if(k!==undefined)return row[k];}return'';};
-      const tipoMap={'1':'Entrada','entradas':'Entrada','entrada':'Entrada','2':'Salida','salidas':'Salida','salida':'Salida','3':'Cocina','cocina':'Cocina','4':'Panaderia','panaderia':'Panaderia','panadería':'Panaderia','5':'Vencidos','vencidos':'Vencidos','6':'Ajuste','ajustes':'Ajuste','ajuste':'Ajuste','7':'Mal estado','9':'Stock Inicial'};
+      // Leer como array de arrays para soporte de mapeo por posición
+      const rawArr=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',cellDates:true});
+      if(rawArr.length<2){showToast('El archivo está vacío o solo tiene encabezados','err');return;}
+
+      // Normalizar texto para comparar nombres de columna
+      const norm=s=>String(s||'').toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g,'') // quitar tildes
+        .replace(/[\s_\-\.]/g,'');                        // quitar espacios y separadores
+
+      const headers=rawArr[0];
+      // Encontrar índice por nombre (acepta variantes); si no encuentra usa posición por defecto
+      const findIdx=(fallback,...names)=>{
+        for(const n of names){
+          const idx=headers.findIndex(h=>norm(h)===norm(n));
+          if(idx>=0)return idx;
+        }
+        return fallback;
+      };
+
+      // Columnas A=0, B=1, C=2, D=3, E=4, F=5, G=6
+      const iP  =findIdx(0,'Producto_Nombre','producto_nombre','producto');
+      const iF  =findIdx(1,'Fecha','fecha');
+      const iT  =findIdx(2,'Tipo_Movimiento','tipo_movimiento','tipo');
+      const iC  =findIdx(3,'Concepto','concepto');
+      const iCa =findIdx(4,'Cantidad','cantidad');
+      const iPr =findIdx(5,'Precio','precio');
+      const iO  =findIdx(6,'Observacion','observaciones','Descripcion para informes');
+
+      const tipoMap={
+        'entrada':'Entrada','entradas':'Entrada','1':'Entrada',
+        'salida':'Salida','salidas':'Salida','2':'Salida',
+        'cocina':'Cocina','3':'Cocina',
+        'panaderia':'Panaderia','panadería':'Panaderia','4':'Panaderia',
+        'vencidos':'Vencidos','5':'Vencidos',
+        'ajuste':'Ajuste','ajustes':'Ajuste','6':'Ajuste',
+        'mal estado':'Mal estado','7':'Mal estado'
+      };
+
       const rows=[],errors=[];
-      raw.forEach((row,i)=>{
-        let prod=String(get(row,'producto_nombre','producto','Producto','Descripcion Producto Buscar en lista','descripcion producto')||'').trim();
-        if(!prod||prod.length<2)return;
-        let fechaRaw=get(row,'fecha','Fecha','date');
+      rawArr.slice(1).forEach((row,i)=>{
+        const cell=col=>(row[col]!==undefined&&row[col]!=='')?row[col]:'';
+
+        // A: Producto_Nombre
+        const prod=String(cell(iP)||'').trim();
+        if(!prod||prod.length<2)return; // fila vacía → ignorar silenciosamente
+
+        // B: Fecha
+        let fechaRaw=cell(iF);
         let fecha='';
         if(fechaRaw instanceof Date){fecha=fechaRaw.toISOString().split('T')[0];}
-        else if(typeof fechaRaw==='number'){const d=new Date(Math.round((fechaRaw-25569)*86400*1000));fecha=d.toISOString().split('T')[0];}
-        else if(typeof fechaRaw==='string'&&fechaRaw.length>=6){const c=fechaRaw.replace(/\//g,'-');const p=new Date(c);if(!isNaN(p))fecha=p.toISOString().split('T')[0];}
-        if(!fecha||fecha.length!==10){errors.push(`Fila ${i+2}: fecha inválida`);return;}
-        let tipoRaw=String(get(row,'tipo','Tipo Movim.','tipo_mov','TipoMovim','tipo movim')||'').trim();
-        const tipoFinal=tipoMap[tipoRaw.toLowerCase()]||tipoMap[tipoRaw]||(tipoRaw||'Entrada');
-        let cant=parseFloat(get(row,'cantidad','Carga de Unidades','cargadeunidades','CargaDeUnidades')||0);
+        else if(typeof fechaRaw==='number'&&fechaRaw>0){const d=new Date(Math.round((fechaRaw-25569)*86400*1000));fecha=d.toISOString().split('T')[0];}
+        else if(typeof fechaRaw==='string'&&fechaRaw.length>=6){const p=new Date(fechaRaw.replace(/\//g,'-'));if(!isNaN(p))fecha=p.toISOString().split('T')[0];}
+        if(!fecha||fecha.length!==10){errors.push(`Fila ${i+2}: fecha inválida (${fechaRaw})`);return;}
+
+        // C: Tipo_Movimiento
+        const tipoRaw=String(cell(iT)||'').trim();
+        const tipo=tipoMap[norm(tipoRaw)]||tipoMap[tipoRaw]||(tipoRaw||'Entrada');
+
+        // D: Concepto
+        const conc=String(cell(iC)||'Importado').trim()||'Importado';
+
+        // E: Cantidad
+        const cant=parseFloat(String(cell(iCa)).replace(',','.'));
         if(!cant||isNaN(cant)||cant<=0){errors.push(`Fila ${i+2}: cantidad inválida`);return;}
-        let precio=parseFloat(get(row,'precio','Precio de Factura','preciofactura','PrecioDeFactura','precio_factura')||0);
-        let conc=String(get(row,'concepto','Conceptos Buscar en Lista','conceptos','Concepto')||'Importado').trim();
-        let obs=String(get(row,'observaciones','Descripción para informes','Descripcion para informes','descripcion para informes','descripcionparainformes')||'').trim().slice(0,20);
-        rows.push({producto_nombre:prod,fecha,tipo:tipoFinal,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio,observaciones:obs||null});
+
+        // F: Precio
+        const precio=parseFloat(String(cell(iPr)).replace(',','.'))||0;
+
+        // G: Observacion (máx 20 caracteres)
+        const obs=String(cell(iO)||'').trim().slice(0,20)||null;
+
+        rows.push({producto_nombre:prod,fecha,tipo,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio,observaciones:obs});
       });
+
       importRows=rows;
       document.getElementById('import-label').textContent=`${rows.length} registros listos para importar`;
-      document.getElementById('import-errors').textContent=errors.length?`⚠️ ${errors.length} filas ignoradas`:'';
+      document.getElementById('import-errors').textContent=errors.length?`⚠ ${errors.length} filas ignoradas`:'';
       document.getElementById('import-preview').style.display='';
       const prev=rows.slice(0,6);
-      document.getElementById('import-table-wrap').innerHTML=rows.length===0
+      document.getElementById('import-table-wrap').innerHTML=!rows.length
         ?'<div style="padding:16px;text-align:center;color:var(--text3)">No se encontraron filas válidas.</div>'
-        :`<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th><th>Obs.</th></tr></thead><tbody>
-          ${prev.map(r=>`<tr><td>${r.producto_nombre}</td><td style="font-family:monospace">${r.fecha}</td><td>${tipoBadge(r.tipo)}</td><td style="color:var(--text2)">${r.concepto}</td><td>${fmt(r.cantidad)}</td><td style="color:var(--text2)">${r.observaciones||'—'}</td></tr>`).join('')}
-          ${rows.length>6?`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:8px">… y ${rows.length-6} más</td></tr>`:''}
+        :`<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Obs.</th></tr></thead><tbody>
+          ${prev.map(r=>`<tr>
+            <td>${r.producto_nombre}</td>
+            <td style="font-family:monospace;font-size:12px">${r.fecha}</td>
+            <td>${tipoBadge(r.tipo)}</td>
+            <td style="color:var(--text2)">${r.concepto}</td>
+            <td>${fmt(r.cantidad)}</td>
+            <td style="color:var(--text2)">${r.precio?fmtP(r.precio):'—'}</td>
+            <td style="color:var(--text2)">${r.observaciones||'—'}</td>
+          </tr>`).join('')}
+          ${rows.length>6?`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:8px">… y ${rows.length-6} más</td></tr>`:''}
         </tbody></table>`;
-      document.getElementById('btn-import').disabled=rows.length===0;
-    }catch(err){showToast('Error leyendo el archivo: '+err.message,'err');}
+      document.getElementById('btn-import').disabled=!rows.length;
+    }catch(err){showToast('Error leyendo el archivo: '+err.message,'err');console.error(err);}
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1628,7 +1685,18 @@ async function confirmarImport(){
   let ok=0,fail=0;
   const BATCH=200;
   for(let i=0;i<importRows.length;i+=BATCH){
-    const batch=importRows.slice(i,i+BATCH).map(r=>({...r,usuario_email:'importado@sistema.com',usuario_nombre:'Importado Excel'}));
+    const batch=importRows.slice(i,i+BATCH).map(r=>({
+      producto_nombre:r.producto_nombre,
+      fecha:r.fecha,
+      tipo:r.tipo,
+      concepto:r.concepto,
+      cantidad:r.cantidad,
+      precio:r.precio,
+      observaciones:r.observaciones||null,
+      precio_cierre:null,          // lo asigna el cierre mensual
+      usuario_email:currentUser.email,
+      usuario_nombre:currentUserName
+    }));
     const{error}=await db.from('transacciones').insert(batch);
     if(error){fail+=batch.length;console.error(error);}else ok+=batch.length;
   }
