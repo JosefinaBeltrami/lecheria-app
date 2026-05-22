@@ -583,9 +583,25 @@ tr:hover td{background:#FAFAF7;}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Importar historial desde Excel</div>
     <div class="modal-sub">
-      El archivo necesita estas columnas (los nombres pueden variar, las detectamos automáticamente):<br>
-      <strong>producto / fecha / tipo / concepto / cantidad / precio</strong><br>
-      Los registros se <strong>agregan</strong> sin borrar los existentes.
+      Columnas reconocidas (los nombres pueden variar):<br>
+      <strong>producto / fecha / tipo / concepto / cantidad / precio / Descripción para informes</strong>
+    </div>
+    <!-- Tipo de importación -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <label id="lbl-import-nuevos" style="flex:1;border:2px solid var(--green);background:var(--green-l);border-radius:var(--rs);padding:11px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">
+        <input type="radio" name="import-tipo" value="nuevos" id="import-nuevos" checked onchange="updateImportTipo()" style="margin-top:3px;accent-color:var(--green)">
+        <div>
+          <div style="font-weight:600;font-size:13px">Nuevos registros</div>
+          <div style="font-size:12px;color:var(--text2)">Agrega sin borrar los existentes</div>
+        </div>
+      </label>
+      <label id="lbl-import-total" style="flex:1;border:2px solid var(--border);border-radius:var(--rs);padding:11px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">
+        <input type="radio" name="import-tipo" value="total" id="import-total" onchange="updateImportTipo()" style="margin-top:3px;accent-color:var(--red)">
+        <div>
+          <div style="font-weight:600;font-size:13px;color:var(--red)">Importación total</div>
+          <div style="font-size:12px;color:var(--text2)">Borra TODO el historial y lo reemplaza</div>
+        </div>
+      </label>
     </div>
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
       ondragover="event.preventDefault();this.classList.add('drag')"
@@ -1525,7 +1541,18 @@ function abrirImport(){
   document.getElementById('import-preview').style.display='none';
   document.getElementById('btn-import').disabled=true;
   document.getElementById('file-input').value='';
+  document.getElementById('import-nuevos').checked=true;
+  updateImportTipo();
   document.getElementById('modal-import').classList.add('open');
+}
+function updateImportTipo(){
+  const tipo=document.querySelector('input[name="import-tipo"]:checked')?.value||'nuevos';
+  const lN=document.getElementById('lbl-import-nuevos');
+  const lT=document.getElementById('lbl-import-total');
+  lN.style.borderColor=tipo==='nuevos'?'var(--green)':'var(--border)';
+  lN.style.background=tipo==='nuevos'?'var(--green-l)':'';
+  lT.style.borderColor=tipo==='total'?'var(--red)':'var(--border)';
+  lT.style.background=tipo==='total'?'var(--red-l)':'';
 }
 function onFileDrop(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('drag');if(e.dataTransfer.files[0])processExcelFile(e.dataTransfer.files[0]);}
 function onFileSelect(e){if(e.target.files[0])processExcelFile(e.target.files[0]);}
@@ -1559,7 +1586,8 @@ function processExcelFile(file){
         if(!cant||isNaN(cant)||cant<=0){errors.push(`Fila ${i+2}: cantidad inválida`);return;}
         let precio=parseFloat(get(row,'precio','Precio de Factura','preciofactura','PrecioDeFactura','precio_factura')||0);
         let conc=String(get(row,'concepto','Conceptos Buscar en Lista','conceptos','Concepto')||'Importado').trim();
-        rows.push({producto_nombre:prod,fecha,tipo:tipoFinal,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio});
+        let obs=String(get(row,'observaciones','Descripción para informes','Descripcion para informes','descripcion para informes','descripcionparainformes')||'').trim().slice(0,20);
+        rows.push({producto_nombre:prod,fecha,tipo:tipoFinal,concepto:conc,cantidad:cant,precio:isNaN(precio)?0:precio,observaciones:obs||null});
       });
       importRows=rows;
       document.getElementById('import-label').textContent=`${rows.length} registros listos para importar`;
@@ -1568,9 +1596,9 @@ function processExcelFile(file){
       const prev=rows.slice(0,6);
       document.getElementById('import-table-wrap').innerHTML=rows.length===0
         ?'<div style="padding:16px;text-align:center;color:var(--text3)">No se encontraron filas válidas.</div>'
-        :`<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th></tr></thead><tbody>
-          ${prev.map(r=>`<tr><td>${r.producto_nombre}</td><td style="font-family:monospace">${r.fecha}</td><td>${tipoBadge(r.tipo)}</td><td style="color:var(--text2)">${r.concepto}</td><td>${fmt(r.cantidad)}</td></tr>`).join('')}
-          ${rows.length>6?`<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:8px">… y ${rows.length-6} más</td></tr>`:''}
+        :`<table><thead><tr><th>Producto</th><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cant.</th><th>Obs.</th></tr></thead><tbody>
+          ${prev.map(r=>`<tr><td>${r.producto_nombre}</td><td style="font-family:monospace">${r.fecha}</td><td>${tipoBadge(r.tipo)}</td><td style="color:var(--text2)">${r.concepto}</td><td>${fmt(r.cantidad)}</td><td style="color:var(--text2)">${r.observaciones||'—'}</td></tr>`).join('')}
+          ${rows.length>6?`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:8px">… y ${rows.length-6} más</td></tr>`:''}
         </tbody></table>`;
       document.getElementById('btn-import').disabled=rows.length===0;
     }catch(err){showToast('Error leyendo el archivo: '+err.message,'err');}
@@ -1580,8 +1608,23 @@ function processExcelFile(file){
 
 async function confirmarImport(){
   if(!importRows.length)return;
+  const tipo=document.querySelector('input[name="import-tipo"]:checked')?.value||'nuevos';
   const btn=document.getElementById('btn-import');
-  btn.disabled=true;btn.textContent=`Importando ${importRows.length} registros…`;
+
+  if(tipo==='total'){
+    if(!confirm(`⚠ IMPORTACIÓN TOTAL\n\nEsto borrará los ${transacciones.length} registros existentes en el historial y los reemplazará con los ${importRows.length} registros del Excel.\n\n¿Confirmar?`))return;
+    btn.disabled=true;btn.textContent='Borrando historial…';
+    const{error:delErr}=await db.from('transacciones').delete().not('id','is',null);
+    if(delErr){
+      showToast('Error al borrar historial: '+delErr.message,'err');
+      btn.disabled=false;btn.textContent='Importar registros';
+      return;
+    }
+  } else {
+    btn.disabled=true;
+  }
+
+  btn.textContent=`Importando ${importRows.length} registros…`;
   let ok=0,fail=0;
   const BATCH=200;
   for(let i=0;i<importRows.length;i+=BATCH){
@@ -1593,7 +1636,8 @@ async function confirmarImport(){
   buildPeriodoSelect();
   cerrarModal('modal-import');
   btn.disabled=false;btn.textContent='Importar registros';
-  showToast(`✓ ${ok} registros importados${fail?` · ${fail} con error`:''}`,ok>0?'ok':'err');
+  const prefix=tipo==='total'?'Historial reemplazado · ':'';
+  showToast(`✓ ${prefix}${ok} registros importados${fail?` · ${fail} con error`:''}`,ok>0?'ok':'err');
 }
 
 // ── PRODUCTOS ─────────────────────────────────────────
