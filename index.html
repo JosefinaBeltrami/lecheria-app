@@ -575,11 +575,10 @@ tr:hover td{background:#FAFAF7;}
               <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Vencidos" onchange="msInfChange()" checked><label>Vencidos</label></div>
             </div>
           </div>
+          <input type="date" id="inf-desde" onchange="renderInformePeriodos()" title="Desde">
+          <input type="date" id="inf-hasta" onchange="renderInformePeriodos()" title="Hasta">
           <input type="text" id="inf-prod-q" placeholder="Buscar producto…" style="width:180px" oninput="renderInformePeriodos()">
           <button class="btn" onclick="exportInformesCSV()">↓ CSV</button>
-        </div>
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
-          <div class="periodo-tabs" id="inf-periodo-pills"></div>
         </div>
         <div id="inf-periodos-content"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
       </div>
@@ -1229,14 +1228,14 @@ function renderDashboard(){
 
 // ── INFORMES ──────────────────────────────────────────
 function renderInformes(){
-  const periodos=getPeriodosDisponibles();
-  if(!informesPeriodoActivo||!periodos.includes(informesPeriodoActivo))informesPeriodoActivo=periodos[0]||getPeriodoActual();
-  document.getElementById('inf-periodo-pills').innerHTML=periodos.map(p=>
-    `<div class="periodo-pill ${p===informesPeriodoActivo?'on':''}" onclick="setInformePeriodo('${p}')">${getPeriodoLabel(p)}</div>`
-  ).join('');
+  const hoy=new Date().toISOString().split('T')[0];
+  const{desde}=getPeriodoRange(getPeriodoActual());
+  const dEl=document.getElementById('inf-desde');
+  const hEl=document.getElementById('inf-hasta');
+  if(!dEl.value)dEl.value=desde;
+  if(!hEl.value)hEl.value=hoy;
   renderInformePeriodos();
 }
-function setInformePeriodo(key){informesPeriodoActivo=key;renderInformes();}
 function msInfSelectAll(cb){
   document.querySelectorAll('.ms-inf-tipo-cb').forEach(c=>{c.checked=cb.checked;});
   msInfChange();
@@ -1255,12 +1254,13 @@ function msInfChange(){
   renderInformePeriodos();
 }
 function getInfTxns(){
-  if(!informesPeriodoActivo)return[];
-  const{desde,hasta}=getPeriodoRange(informesPeriodoActivo);
+  const desde=document.getElementById('inf-desde').value;
+  const hasta=document.getElementById('inf-hasta').value;
   const tiposSel=Array.from(document.querySelectorAll('.ms-inf-tipo-cb')).filter(c=>c.checked).map(c=>c.value);
   const prodQ=(document.getElementById('inf-prod-q')||{value:''}).value.toLowerCase();
   return transacciones.filter(t=>{
-    if(t.fecha<desde||t.fecha>hasta)return false;
+    if(desde&&t.fecha<desde)return false;
+    if(hasta&&t.fecha>hasta)return false;
     if(!tiposSel.includes(t.tipo))return false;
     if(prodQ&&!t.producto_nombre.toLowerCase().includes(prodQ))return false;
     return true;
@@ -1287,7 +1287,6 @@ function buildInfRows(txns){
 }
 function renderInformePeriodos(){
   const el=document.getElementById('inf-periodos-content');
-  if(!informesPeriodoActivo){el.innerHTML='<div class="loading">Sin períodos disponibles</div>';return;}
   const txns=getInfTxns();
   if(!txns.length){el.innerHTML='<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período con los filtros aplicados</div>';return;}
   const tipos=['Entrada','Cocina','Panaderia','Salida','Ajuste','Vencidos'];
@@ -1314,17 +1313,18 @@ function renderInformePeriodos(){
   el.innerHTML=html||'<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período con los filtros aplicados</div>';
 }
 function exportInformesCSV(){
-  if(!informesPeriodoActivo)return;
   const txns=getInfTxns();
   const rows=buildInfRows(txns);
   if(!rows.length){showToast('Sin datos para exportar','err');return;}
-  const periodo=getPeriodoLabel(informesPeriodoActivo);
-  let csv='Período,Tipo,Producto,Observaciones,Movimientos,Total cantidad\n';
-  csv+=rows.map(r=>`"${periodo}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total}`).join('\n');
+  const desde=document.getElementById('inf-desde').value||'';
+  const hasta=document.getElementById('inf-hasta').value||'';
+  const rango=desde&&hasta?`${desde}_${hasta}`:desde||hasta||'todo';
+  let csv='Desde,Hasta,Tipo,Producto,Observaciones,Movimientos,Total cantidad\n';
+  csv+=rows.map(r=>`"${desde}","${hasta}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total}`).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`informe-periodos-${informesPeriodoActivo}.csv`;
+  a.href=url;a.download=`informe-${rango}.csv`;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
 }
