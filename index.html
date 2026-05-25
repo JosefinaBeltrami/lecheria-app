@@ -250,12 +250,28 @@ tr:hover td{background:#FAFAF7;}
 .pending-title{font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:8px;}
 .pending-sub{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
 
+/* CHART */
+.chart-row{display:flex;align-items:center;gap:36px;padding:20px;flex-wrap:wrap;}
+.chart-svg-wrap{flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.chart-legend{display:flex;flex-direction:column;gap:10px;flex:1;min-width:200px;}
+.chart-legend-item{display:flex;align-items:center;gap:10px;font-size:14px;}
+.chart-legend-dot{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
+.chart-legend-label{flex:1;color:var(--text);}
+.chart-legend-count{font-weight:600;color:var(--text);min-width:30px;text-align:right;}
+.chart-legend-pct{color:var(--text2);min-width:38px;text-align:right;font-size:12px;}
+
+/* INFORMES */
+.inf-group-header{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--bg);border-bottom:1px solid var(--border);border-top:1px solid var(--border);}
+.inf-group-header:first-child{border-top:none;}
+.inf-group-meta{font-size:13px;color:var(--text2);}
+
 @media(max-width:768px){
   .topbar-nav{display:none;}
   .stats-row,.periodo-stats{grid-template-columns:1fr 1fr;}
   .app-body{padding:16px;}
   .reg-layout,.cierre-layout{grid-template-columns:1fr;}
   .hist-totals{grid-template-columns:1fr 1fr;}
+  .chart-row{flex-direction:column;align-items:flex-start;}
 }
 </style>
 </head>
@@ -307,6 +323,7 @@ tr:hover td{background:#FAFAF7;}
       <button class="nav-btn" onclick="goTo('stock',this)" id="nav-stock">Stock</button>
       <button class="nav-btn" onclick="goTo('movimiento',this)" id="nav-movimiento">Registrar</button>
       <button class="nav-btn" onclick="goTo('historial',this)" id="nav-historial">Historial</button>
+      <button class="nav-btn" onclick="goTo('informes',this)" id="nav-informes">Informes</button>
       <button class="nav-btn" onclick="goTo('periodo',this)" id="nav-periodo">Período contable</button>
       <button class="nav-btn" onclick="goTo('productos',this)" id="nav-productos">Productos</button>
       <button class="nav-btn" onclick="goTo('precios',this)" id="nav-precios">Precios</button>
@@ -331,8 +348,8 @@ tr:hover td{background:#FAFAF7;}
       <div id="dash-alerts"></div>
       <div class="stats-row" id="dash-stats"></div>
       <div class="tbox">
-        <div class="tbox-toolbar"><span class="tbox-title">Productos con alerta de stock</span></div>
-        <div id="dash-table-wrap"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        <div class="tbox-toolbar"><span class="tbox-title">Estado del stock</span><span id="dash-chart-fecha" style="font-size:12px;color:var(--text3)"></span></div>
+        <div id="dash-chart-container"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
       </div>
     </div>
 
@@ -534,6 +551,21 @@ tr:hover td{background:#FAFAF7;}
       <div class="tbox" style="margin-top:8px">
         <div class="tbox-toolbar"><span class="tbox-title">Cierres realizados</span></div>
         <div id="cierre-log-wrap"><div class="loading">Sin cierres registrados</div></div>
+      </div>
+    </div>
+
+    <!-- INFORMES -->
+    <div class="page" id="page-informes">
+      <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Informes</div><div class="page-sub">Resúmenes y análisis por período contable</div></div></div>
+      <div class="tbox">
+        <div class="tbox-toolbar">
+          <span class="tbox-title">Informe de Períodos</span>
+          <span style="font-size:13px;color:var(--text2)">Movimientos agrupados por tipo y producto</span>
+        </div>
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+          <div class="periodo-tabs" id="inf-periodo-pills"></div>
+        </div>
+        <div id="inf-periodos-content"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
       </div>
     </div>
 
@@ -753,7 +785,7 @@ let currentUser=null,currentUserName='',currentRole=''; // admin | usuario | lec
 let _blockAuthChange=false;
 let productos=[],transacciones=[],historialPrecios=[];
 let tipoMov='Entrada',editingProdId=null,importRows=[];
-let periodoActivo='',perioPg=1;
+let periodoActivo='',perioPg=1,informesPeriodoActivo='';
 const PAGE=30;
 let stockPg=1,histPg=1,prodPg=1,preciosPg=1;
 let editingPrecioProdId=null;
@@ -1116,17 +1148,43 @@ function goTo(page,btn){
   if(page==='movimiento'){populateProductoSelect();renderMovRecientes();}
   if(page==='precios')renderPrecios();
   if(page==='cierre')renderCierreLog();
+  if(page==='informes')renderInformes();
   if(page==='admin')loadAdminUsers();
 }
 
 // ── DASHBOARD ─────────────────────────────────────────
+function drawDonutChart(data,total){
+  const W=200,H=200,cx=100,cy=100,R=82,ri=50;
+  if(total===0)return`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="${cx}" cy="${cy}" r="${R}" fill="var(--border)"/><circle cx="${cx}" cy="${cy}" r="${ri}" fill="var(--surface)"/><text x="${cx}" y="${cy+5}" text-anchor="middle" font-family="'Instrument Sans',sans-serif" font-size="13" fill="var(--text3)">Sin datos</text></svg>`;
+  const nonEmpty=data.filter(d=>d.value>0);
+  if(nonEmpty.length===1){
+    const d=nonEmpty[0];
+    return`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="${cx}" cy="${cy}" r="${R}" fill="${d.color}"/><circle cx="${cx}" cy="${cy}" r="${ri}" fill="var(--surface)"/><text x="${cx}" y="${cy-7}" text-anchor="middle" font-family="'Instrument Sans',sans-serif" font-size="28" font-weight="600" fill="#1C1A16">${total}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-family="'Instrument Sans',sans-serif" font-size="11" fill="#6B6760">productos</text></svg>`;
+  }
+  let paths='',angle=-Math.PI/2;
+  data.forEach(d=>{
+    if(!d.value)return;
+    const sl=(d.value/total)*2*Math.PI;
+    const x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
+    const x2=cx+R*Math.cos(angle+sl),y2=cy+R*Math.sin(angle+sl);
+    const ix1=cx+ri*Math.cos(angle+sl),iy1=cy+ri*Math.sin(angle+sl);
+    const ix2=cx+ri*Math.cos(angle),iy2=cy+ri*Math.sin(angle);
+    const lg=sl>Math.PI?1:0;
+    paths+=`<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${lg} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${ix1.toFixed(2)} ${iy1.toFixed(2)} A${ri} ${ri} 0 ${lg} 0 ${ix2.toFixed(2)} ${iy2.toFixed(2)}Z" fill="${d.color}" stroke="var(--surface)" stroke-width="2.5"/>`;
+    angle+=sl;
+  });
+  paths+=`<text x="${cx}" y="${cy-7}" text-anchor="middle" font-family="'Instrument Sans',sans-serif" font-size="28" font-weight="600" fill="#1C1A16">${total}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-family="'Instrument Sans',sans-serif" font-size="11" fill="#6B6760">productos</text>`;
+  return`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>`;
+}
 function renderDashboard(){
   const d=new Date();
   document.getElementById('dash-fecha').textContent=d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const totalVal=productos.reduce((a,p)=>a+(p.stock*p.precio),0);
-  const sinStock=productos.filter(p=>p.stock<=0).length;
-  const bajoMin=productos.filter(p=>p.stock_minimo>0&&p.stock>0&&p.stock<=p.stock_minimo).length;
+  const cero=productos.filter(p=>p.stock===0).length;
   const negativos=productos.filter(p=>p.stock<0);
+  const bajo=productos.filter(p=>p.stock>=1&&p.stock<=10).length;
+  const bueno=productos.filter(p=>p.stock>10).length;
+  const bajoMin=productos.filter(p=>p.stock_minimo>0&&p.stock>0&&p.stock<=p.stock_minimo).length;
   const pKey=getPeriodoActual();
   const{desde,hasta}=getPeriodoRange(pKey);
   const txnP=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
@@ -1134,14 +1192,60 @@ function renderDashboard(){
     <div class="stat accent"><div class="stat-lbl">Valor inventario</div><div class="stat-val">${fmtP(totalVal)}</div><div class="stat-sub">${productos.length} productos</div></div>
     <div class="stat teal"><div class="stat-lbl">Período actual</div><div class="stat-val">${txnP.length}</div><div class="stat-sub">${getPeriodoLabel(pKey)}</div></div>
     <div class="stat warn"><div class="stat-lbl">Stock bajo</div><div class="stat-val">${bajoMin}</div><div class="stat-sub">cerca del mínimo</div></div>
-    <div class="stat danger"><div class="stat-lbl">Sin stock</div><div class="stat-val">${sinStock}</div><div class="stat-sub">agotados</div></div>`;
+    <div class="stat danger"><div class="stat-lbl">Sin stock / negativo</div><div class="stat-val">${cero+negativos.length}</div><div class="stat-sub">requieren atención</div></div>`;
   let alerts='';
   if(negativos.length)alerts+=`<div class="alert alert-danger">⚠️ Stock negativo: ${negativos.map(p=>p.nombre).join(', ')}.</div>`;
   document.getElementById('dash-alerts').innerHTML=alerts;
-  const low=productos.filter(p=>p.stock<=0||(p.stock_minimo>0&&p.stock<=p.stock_minimo)).sort((a,b)=>a.stock-b.stock).slice(0,12);
-  document.getElementById('dash-table-wrap').innerHTML=low.length===0
-    ?'<div style="text-align:center;padding:32px;color:var(--text3)">✓ Todo el stock está por encima del mínimo</div>'
-    :`<table><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead><tbody>${low.map(p=>{const s=stockStatus(p);return`<tr><td><strong>${p.nombre}</strong></td><td><span class="dot ${s.dot}"></span>${fmt(p.stock)} ${p.unidad}</td><td>${p.stock_minimo>0?fmt(p.stock_minimo)+' '+p.unidad:'<span style="color:var(--text3)">—</span>'}</td><td><span class="badge ${s.cls}">${s.label}</span></td></tr>`;}).join('')}</tbody></table>`;
+  document.getElementById('dash-chart-fecha').textContent='Al '+d.toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'});
+  const chartData=[
+    {label:'Sin stock (= 0)',value:cero,color:'#D4620A'},
+    {label:'Stock negativo (< 0)',value:negativos.length,color:'#B91C1C'},
+    {label:'Stock 1 a 10',value:bajo,color:'#1D4ED8'},
+    {label:'Stock mayor a 10',value:bueno,color:'#2D6A4F'},
+  ];
+  const total=productos.length;
+  const legend=chartData.map(d=>{
+    const pct=total>0?Math.round(d.value/total*100):0;
+    return`<div class="chart-legend-item"><span class="chart-legend-dot" style="background:${d.color}"></span><span class="chart-legend-label">${d.label}</span><span class="chart-legend-count">${d.value}</span><span class="chart-legend-pct">${pct}%</span></div>`;
+  }).join('');
+  document.getElementById('dash-chart-container').innerHTML=`<div class="chart-row"><div class="chart-svg-wrap">${drawDonutChart(chartData,total)}</div><div class="chart-legend">${legend}</div></div>`;
+}
+
+// ── INFORMES ──────────────────────────────────────────
+function renderInformes(){
+  const periodos=getPeriodosDisponibles();
+  if(!informesPeriodoActivo||!periodos.includes(informesPeriodoActivo))informesPeriodoActivo=periodos[0]||getPeriodoActual();
+  document.getElementById('inf-periodo-pills').innerHTML=periodos.map(p=>
+    `<div class="periodo-pill ${p===informesPeriodoActivo?'on':''}" onclick="setInformePeriodo('${p}')">${getPeriodoLabel(p)}</div>`
+  ).join('');
+  renderInformePeriodos();
+}
+function setInformePeriodo(key){informesPeriodoActivo=key;renderInformes();}
+function renderInformePeriodos(){
+  const el=document.getElementById('inf-periodos-content');
+  if(!informesPeriodoActivo){el.innerHTML='<div class="loading">Sin períodos disponibles</div>';return;}
+  const{desde,hasta}=getPeriodoRange(informesPeriodoActivo);
+  const txns=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
+  if(!txns.length){el.innerHTML='<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período</div>';return;}
+  const tipos=['Entrada','Cocina','Panaderia','Salida','Ajuste','Vencidos'];
+  let html='';
+  tipos.forEach(tipo=>{
+    const tt=txns.filter(t=>t.tipo===tipo);
+    if(!tt.length)return;
+    const byProd={};
+    tt.forEach(t=>{
+      if(!byProd[t.producto_nombre])byProd[t.producto_nombre]={count:0,total:0};
+      byProd[t.producto_nombre].count++;
+      byProd[t.producto_nombre].total+=t.cantidad;
+    });
+    const totalCant=tt.reduce((s,t)=>s+t.cantidad,0);
+    const rows=Object.entries(byProd).sort((a,b)=>b[1].total-a[1].total);
+    html+=`<div class="inf-group-header">${tipoBadge(tipo)}<span class="inf-group-meta">${tt.length} movimiento${tt.length!==1?'s':''} · Total: <strong>${fmt(totalCant)}</strong></span></div>
+    <table><thead><tr><th>Producto</th><th style="text-align:right">Movimientos</th><th style="text-align:right">Total cantidad</th></tr></thead><tbody>
+    ${rows.map(([nombre,d])=>`<tr><td><strong>${nombre}</strong></td><td style="text-align:right;color:var(--text2)">${d.count}</td><td style="text-align:right;font-weight:500">${fmt(d.total)}</td></tr>`).join('')}
+    </tbody></table>`;
+  });
+  el.innerHTML=html||'<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período</div>';
 }
 
 // ── STOCK ─────────────────────────────────────────────
