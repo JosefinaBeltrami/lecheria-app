@@ -1278,8 +1278,8 @@ function buildInfRows(txns){
     tt.forEach(t=>{
       const obs=t.observaciones||'';
       const key=t.producto_nombre+'||'+obs;
-      if(!byKey[key])byKey[key]={tipo,nombre:t.producto_nombre,obs,count:0,total:0};
-      byKey[key].count++;byKey[key].total+=t.cantidad;
+      if(!byKey[key])byKey[key]={tipo,nombre:t.producto_nombre,obs,count:0,total:0,valor:0};
+      byKey[key].count++;byKey[key].total+=t.cantidad;byKey[key].valor+=t.cantidad*(t.precio||0);
     });
     Object.values(byKey).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')||a.obs.localeCompare(b.obs,'es')).forEach(r=>result.push(r));
   });
@@ -1300,14 +1300,14 @@ function renderInformePeriodos(){
     tt.forEach(t=>{
       const obs=t.observaciones||'';
       const key=t.producto_nombre+'||'+obs;
-      if(!byKey[key])byKey[key]={nombre:t.producto_nombre,obs,count:0,total:0};
-      byKey[key].count++;byKey[key].total+=t.cantidad;
+      if(!byKey[key])byKey[key]={nombre:t.producto_nombre,obs,count:0,total:0,valor:0};
+      byKey[key].count++;byKey[key].total+=t.cantidad;byKey[key].valor+=t.cantidad*(t.precio||0);
     });
     const totalCant=tt.reduce((s,t)=>s+t.cantidad,0);
     const rows=Object.values(byKey).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')||a.obs.localeCompare(b.obs,'es'));
     html+=`<div class="inf-group-header">${tipoBadge(tipo)}<span class="inf-group-meta">${tt.length} movimiento${tt.length!==1?'s':''} · Total: <strong>${fmt(totalCant)}</strong></span></div>
-    <table><thead><tr><th>Producto</th><th>Observaciones</th><th style="text-align:right">Movimientos</th><th style="text-align:right">Total cantidad</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td><strong>${r.nombre}</strong></td><td style="color:var(--text2);font-size:13px">${r.obs||'<span style="color:var(--text3)">—</span>'}</td><td style="text-align:right;color:var(--text2)">${r.count}</td><td style="text-align:right;font-weight:500">${fmt(r.total)}</td></tr>`).join('')}
+    <table><thead><tr><th>Producto</th><th>Observaciones</th><th style="text-align:right">Movimientos</th><th style="text-align:right">Total cantidad</th><th style="text-align:right">Valorización</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><strong>${r.nombre}</strong></td><td style="color:var(--text2);font-size:13px">${r.obs||'<span style="color:var(--text3)">—</span>'}</td><td style="text-align:right;color:var(--text2)">${r.count}</td><td style="text-align:right;font-weight:500">${fmt(r.total)}</td><td style="text-align:right;color:var(--text2)">${fmtP(r.valor)}</td></tr>`).join('')}
     </tbody></table>`;
   });
   el.innerHTML=html||'<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período con los filtros aplicados</div>';
@@ -1319,8 +1319,8 @@ function exportInformesCSV(){
   const desde=document.getElementById('inf-desde').value||'';
   const hasta=document.getElementById('inf-hasta').value||'';
   const rango=desde&&hasta?`${desde}_${hasta}`:desde||hasta||'todo';
-  let csv='Desde,Hasta,Tipo,Producto,Observaciones,Movimientos,Total cantidad\n';
-  csv+=rows.map(r=>`"${desde}","${hasta}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total}`).join('\n');
+  let csv='Desde,Hasta,Tipo,Producto,Observaciones,Movimientos,Total cantidad,Valorización\n';
+  csv+=rows.map(r=>`"${desde}","${hasta}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total},${r.valor}`).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
