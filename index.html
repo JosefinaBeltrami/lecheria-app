@@ -967,8 +967,15 @@ async function doRegister(){
   try{
     const{data,error}=await db.auth.signUp({email,password:pass,options:{data:{nombre_completo:nombre}}});
     if(error){btn.disabled=false;btn.textContent='Crear cuenta';showAuthError(error.message);return;}
-    // Dar de alta en user_roles con rol usuario por defecto
-    try{await db.from('user_roles').insert({user_id:data.user.id,user_email:email,user_name:nombre,role:'usuario'});}catch(_){}
+    if(!data.user){btn.disabled=false;btn.textContent='Crear cuenta';showAuthError('No se pudo crear el usuario. Intentá de nuevo.');return;}
+    // Dar de alta en user_roles — usar adminDb si está disponible (sortea RLS);
+    // si no, intentar con el cliente regular vía upsert (maneja trigger + conflicto)
+    const roleClient=adminDb||db;
+    const{error:roleErr}=await roleClient.from('user_roles').upsert(
+      {user_id:data.user.id,user_email:email,user_name:nombre,role:'usuario'},
+      {onConflict:'user_id'}
+    );
+    if(roleErr)console.warn('user_roles upsert en registro:',roleErr.message);
     await initApp(data.user);
   }catch(e){
     btn.disabled=false;btn.textContent='Crear cuenta';
@@ -2272,8 +2279,11 @@ async function setUserRole(userId,newRole,btn,emailEnc,nombreEnc){
       {onConflict:'user_id'}
     ));
   } else {
-    // Sin service key: solo actualiza (RLS permite update pero no insert)
-    ({error}=await db.from('user_roles').update({role:newRole}).eq('user_id',userId));
+    // Sin service key: upsert — actualiza si existe la fila, intenta crear si no
+    ({error}=await db.from('user_roles').upsert(
+      {user_id:userId,user_email:email,user_name:nombre,role:newRole},
+      {onConflict:'user_id'}
+    ));
   }
   if(error){showToast('Error: '+error.message,'err');loadAdminUsers();return;}
   showToast('✓ Rol actualizado','ok');
