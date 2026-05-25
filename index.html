@@ -560,7 +560,23 @@ tr:hover td{background:#FAFAF7;}
       <div class="tbox">
         <div class="tbox-toolbar">
           <span class="tbox-title">Informe de Períodos</span>
-          <span style="font-size:13px;color:var(--text2)">Movimientos agrupados por tipo y producto</span>
+          <div class="ms-wrap" id="ms-inf-tipo-wrap">
+            <div class="ms-btn" id="ms-inf-tipo-btn" onclick="toggleMs('ms-inf-tipo')">
+              <span id="ms-inf-tipo-label">Todos los tipos</span><span style="font-size:10px;color:var(--text3)">▼</span>
+            </div>
+            <div class="ms-dropdown" id="ms-inf-tipo-dd">
+              <div class="ms-item"><input type="checkbox" id="msit-all" onchange="msInfSelectAll(this)" checked><label for="msit-all">Todos</label></div>
+              <div class="ms-sep"></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Entrada" onchange="msInfChange()" checked><label>Entrada</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Cocina" onchange="msInfChange()" checked><label>Cocina</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Panaderia" onchange="msInfChange()" checked><label>Panadería</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Salida" onchange="msInfChange()" checked><label>Salida</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Ajuste" onchange="msInfChange()" checked><label>Ajuste</label></div>
+              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Vencidos" onchange="msInfChange()" checked><label>Vencidos</label></div>
+            </div>
+          </div>
+          <input type="text" id="inf-prod-q" placeholder="Buscar producto…" style="width:180px" oninput="renderInformePeriodos()">
+          <button class="btn" onclick="exportInformesCSV()">↓ CSV</button>
         </div>
         <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
           <div class="periodo-tabs" id="inf-periodo-pills"></div>
@@ -1221,31 +1237,96 @@ function renderInformes(){
   renderInformePeriodos();
 }
 function setInformePeriodo(key){informesPeriodoActivo=key;renderInformes();}
+function msInfSelectAll(cb){
+  document.querySelectorAll('.ms-inf-tipo-cb').forEach(c=>{c.checked=cb.checked;});
+  msInfChange();
+}
+function msInfChange(){
+  const cbs=Array.from(document.querySelectorAll('.ms-inf-tipo-cb'));
+  const sel=cbs.filter(c=>c.checked).map(c=>c.value);
+  const all=cbs.every(c=>c.checked);
+  const allCb=document.getElementById('msit-all');
+  if(allCb)allCb.checked=all;
+  const lbl=document.getElementById('ms-inf-tipo-label');
+  const btn=document.getElementById('ms-inf-tipo-btn');
+  if(all){lbl.textContent='Todos los tipos';btn.classList.remove('active');}
+  else if(!sel.length){lbl.textContent='Ninguno';btn.classList.add('active');}
+  else{lbl.textContent=sel.length+' seleccionados';btn.classList.add('active');}
+  renderInformePeriodos();
+}
+function getInfTxns(){
+  if(!informesPeriodoActivo)return[];
+  const{desde,hasta}=getPeriodoRange(informesPeriodoActivo);
+  const tiposSel=Array.from(document.querySelectorAll('.ms-inf-tipo-cb')).filter(c=>c.checked).map(c=>c.value);
+  const prodQ=(document.getElementById('inf-prod-q')||{value:''}).value.toLowerCase();
+  return transacciones.filter(t=>{
+    if(t.fecha<desde||t.fecha>hasta)return false;
+    if(!tiposSel.includes(t.tipo))return false;
+    if(prodQ&&!t.producto_nombre.toLowerCase().includes(prodQ))return false;
+    return true;
+  });
+}
+function buildInfRows(txns){
+  const tipos=['Entrada','Cocina','Panaderia','Salida','Ajuste','Vencidos'];
+  const tiposSel=Array.from(document.querySelectorAll('.ms-inf-tipo-cb')).filter(c=>c.checked).map(c=>c.value);
+  const result=[];
+  tipos.forEach(tipo=>{
+    if(!tiposSel.includes(tipo))return;
+    const tt=txns.filter(t=>t.tipo===tipo);
+    if(!tt.length)return;
+    const byKey={};
+    tt.forEach(t=>{
+      const obs=t.observaciones||'';
+      const key=t.producto_nombre+'||'+obs;
+      if(!byKey[key])byKey[key]={tipo,nombre:t.producto_nombre,obs,count:0,total:0};
+      byKey[key].count++;byKey[key].total+=t.cantidad;
+    });
+    Object.values(byKey).sort((a,b)=>b.total-a.total).forEach(r=>result.push(r));
+  });
+  return result;
+}
 function renderInformePeriodos(){
   const el=document.getElementById('inf-periodos-content');
   if(!informesPeriodoActivo){el.innerHTML='<div class="loading">Sin períodos disponibles</div>';return;}
-  const{desde,hasta}=getPeriodoRange(informesPeriodoActivo);
-  const txns=transacciones.filter(t=>t.fecha>=desde&&t.fecha<=hasta);
-  if(!txns.length){el.innerHTML='<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período</div>';return;}
+  const txns=getInfTxns();
+  if(!txns.length){el.innerHTML='<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período con los filtros aplicados</div>';return;}
   const tipos=['Entrada','Cocina','Panaderia','Salida','Ajuste','Vencidos'];
+  const tiposSel=Array.from(document.querySelectorAll('.ms-inf-tipo-cb')).filter(c=>c.checked).map(c=>c.value);
   let html='';
   tipos.forEach(tipo=>{
+    if(!tiposSel.includes(tipo))return;
     const tt=txns.filter(t=>t.tipo===tipo);
     if(!tt.length)return;
-    const byProd={};
+    const byKey={};
     tt.forEach(t=>{
-      if(!byProd[t.producto_nombre])byProd[t.producto_nombre]={count:0,total:0};
-      byProd[t.producto_nombre].count++;
-      byProd[t.producto_nombre].total+=t.cantidad;
+      const obs=t.observaciones||'';
+      const key=t.producto_nombre+'||'+obs;
+      if(!byKey[key])byKey[key]={nombre:t.producto_nombre,obs,count:0,total:0};
+      byKey[key].count++;byKey[key].total+=t.cantidad;
     });
     const totalCant=tt.reduce((s,t)=>s+t.cantidad,0);
-    const rows=Object.entries(byProd).sort((a,b)=>b[1].total-a[1].total);
+    const rows=Object.values(byKey).sort((a,b)=>b.total-a.total);
     html+=`<div class="inf-group-header">${tipoBadge(tipo)}<span class="inf-group-meta">${tt.length} movimiento${tt.length!==1?'s':''} · Total: <strong>${fmt(totalCant)}</strong></span></div>
-    <table><thead><tr><th>Producto</th><th style="text-align:right">Movimientos</th><th style="text-align:right">Total cantidad</th></tr></thead><tbody>
-    ${rows.map(([nombre,d])=>`<tr><td><strong>${nombre}</strong></td><td style="text-align:right;color:var(--text2)">${d.count}</td><td style="text-align:right;font-weight:500">${fmt(d.total)}</td></tr>`).join('')}
+    <table><thead><tr><th>Producto</th><th>Observaciones</th><th style="text-align:right">Movimientos</th><th style="text-align:right">Total cantidad</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><strong>${r.nombre}</strong></td><td style="color:var(--text2);font-size:13px">${r.obs||'<span style="color:var(--text3)">—</span>'}</td><td style="text-align:right;color:var(--text2)">${r.count}</td><td style="text-align:right;font-weight:500">${fmt(r.total)}</td></tr>`).join('')}
     </tbody></table>`;
   });
-  el.innerHTML=html||'<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período</div>';
+  el.innerHTML=html||'<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos para este período con los filtros aplicados</div>';
+}
+function exportInformesCSV(){
+  if(!informesPeriodoActivo)return;
+  const txns=getInfTxns();
+  const rows=buildInfRows(txns);
+  if(!rows.length){showToast('Sin datos para exportar','err');return;}
+  const periodo=getPeriodoLabel(informesPeriodoActivo);
+  let csv='Período,Tipo,Producto,Observaciones,Movimientos,Total cantidad\n';
+  csv+=rows.map(r=>`"${periodo}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total}`).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`informe-periodos-${informesPeriodoActivo}.csv`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 // ── STOCK ─────────────────────────────────────────────
