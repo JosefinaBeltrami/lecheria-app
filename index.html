@@ -894,7 +894,12 @@ async function doLogin(){
 
     if(error){
       // 2. Si falla, verificar si es un usuario pendiente creado por el admin
-      const{data:pending}=await db.from('pending_users').select('*').eq('email',email).limit(1);
+      // Intentar primero con el cliente regular; si RLS lo bloquea, usar adminDb
+      let pendResult=await db.from('pending_users').select('*').eq('email',email).limit(1);
+      if((!pendResult.data||!pendResult.data.length)&&adminDb){
+        pendResult=await adminDb.from('pending_users').select('*').eq('email',email).limit(1);
+      }
+      const{data:pending}=pendResult;
 
       if(pending&&pending.length>0&&pending[0].temp_password===pass){
         // Es usuario pendiente con clave correcta — registrarlo en Auth ahora
@@ -2043,33 +2048,50 @@ async function crearUsuarioAdmin(){
   errEl.style.display='none';
 
   if(!nombre||!email||!pass){errEl.textContent='Completá todos los campos.';errEl.style.display='';return;}
-  if(pass.length<6){errEl.textContent='La contrasena debe tener al menos 6 caracteres.';errEl.style.display='';return;}
+  if(pass.length<6){errEl.textContent='La contraseña debe tener al menos 6 caracteres.';errEl.style.display='';return;}
 
   const btn=document.getElementById('btn-crear-user');
   btn.disabled=true;btn.textContent='Creando…';
 
   try{
-    // Guardar en pending_users — el registro en Auth se hace cuando el usuario
-    // inicia sesion por primera vez con su contrasena provisoria
-    const{error:pendErr}=await db.from('pending_users').insert({
-      email,
-      nombre,
-      role: nuRoleSelected,
-      temp_password: pass,
-      created_by: currentUserName,
-      created_at: new Date().toISOString()
-    });
+    if(adminDb){
+      // ── Con service key: crear directamente en Auth ──────────────────
+      const{data:authData,error:authErr}=await adminDb.auth.admin.createUser({
+        email,
+        password:pass,
+        email_confirm:true,
+        user_metadata:{nombre_completo:nombre}
+      });
+      if(authErr){
+        errEl.textContent='Error al crear cuenta: '+authErr.message;
+        errEl.style.display='';
+        btn.disabled=false;btn.textContent='Crear usuario';
+        return;
+      }
+      // Upsert en user_roles con el rol elegido y flag de cambio de contraseña
+      const{error:roleErr}=await adminDb.from('user_roles').upsert(
+        {user_id:authData.user.id,user_email:email,user_name:nombre,role:nuRoleSelected,must_change_password:true},
+        {onConflict:'user_id'}
+      );
+      if(roleErr)console.warn('user_roles upsert:',roleErr.message);
 
-    if(pendErr){
-      errEl.textContent='Error al guardar: '+pendErr.message;
-      errEl.style.display='';
-      btn.disabled=false;btn.textContent='Crear usuario';
-      return;
+    } else {
+      // ── Sin service key: flujo pending (login activa la cuenta) ──────
+      const{error:pendErr}=await db.from('pending_users').insert({
+        email,nombre,role:nuRoleSelected,temp_password:pass,
+        created_by:currentUserName,created_at:new Date().toISOString()
+      });
+      if(pendErr){
+        errEl.textContent='Error al guardar: '+pendErr.message;
+        errEl.style.display='';
+        btn.disabled=false;btn.textContent='Crear usuario';
+        return;
+      }
     }
 
     btn.disabled=false;btn.textContent='Crear usuario';
     cerrarModal('modal-nuevo-user');
-    showToast('✓ Usuario preparado: '+nombre,'ok');
+    showToast('✓ Usuario creado: '+nombre,'ok');
     loadAdminUsers();
   }catch(e){
     errEl.textContent='Error inesperado: '+e.message;
