@@ -264,6 +264,11 @@ tr:hover td{background:#FAFAF7;}
 .inf-group-header{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--bg);border-bottom:1px solid var(--border);border-top:1px solid var(--border);}
 .inf-group-header:first-child{border-top:none;}
 .inf-group-meta{font-size:13px;color:var(--text2);}
+.inf-tab{background:none;border:none;border-bottom:3px solid transparent;padding:10px 18px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;border-radius:0;margin-bottom:-2px;transition:color .15s,border-color .15s;}
+.inf-tab:hover{color:var(--text1);}
+.inf-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.bolsas-obs-header{padding:10px 18px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);background:var(--surface2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.bolsas-obs-header:first-child{border-top:none;}
 
 @media(max-width:768px){
   .topbar-nav{display:none;}
@@ -557,31 +562,56 @@ tr:hover td{background:#FAFAF7;}
     <!-- INFORMES -->
     <div class="page" id="page-informes">
       <div class="page-hdr"><div class="page-hdr-text"><div class="page-title">Informes</div><div class="page-sub">Resúmenes y análisis por período contable</div></div></div>
-      <div class="tbox">
-        <div class="tbox-toolbar">
-          <span class="tbox-title">Informe de Períodos</span>
-          <div class="ms-wrap" id="ms-inf-tipo-wrap">
-            <div class="ms-btn" id="ms-inf-tipo-btn" onclick="toggleMs('ms-inf-tipo')">
-              <span id="ms-inf-tipo-label">Todos los tipos</span><span style="font-size:10px;color:var(--text3)">▼</span>
-            </div>
-            <div class="ms-dropdown" id="ms-inf-tipo-dd">
-              <div class="ms-item"><input type="checkbox" id="msit-all" onchange="msInfSelectAll(this)" checked><label for="msit-all">Todos</label></div>
-              <div class="ms-sep"></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Entrada" onchange="msInfChange()" checked><label>Entrada</label></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Cocina" onchange="msInfChange()" checked><label>Cocina</label></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Panaderia" onchange="msInfChange()" checked><label>Panadería</label></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Salida" onchange="msInfChange()" checked><label>Salida</label></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Ajuste" onchange="msInfChange()" checked><label>Ajuste</label></div>
-              <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Vencidos" onchange="msInfChange()" checked><label>Vencidos</label></div>
-            </div>
-          </div>
-          <input type="date" id="inf-desde" onchange="renderInformePeriodos()" title="Desde">
-          <input type="date" id="inf-hasta" onchange="renderInformePeriodos()" title="Hasta">
-          <input type="text" id="inf-prod-q" placeholder="Buscar producto…" style="width:180px" oninput="renderInformePeriodos()">
-          <button class="btn" onclick="exportInformesCSV()">↓ CSV</button>
-        </div>
-        <div id="inf-periodos-content"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+
+      <!-- Selector de informe -->
+      <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:2px solid var(--border);padding-bottom:0">
+        <button class="inf-tab active" id="tab-periodos" onclick="switchInforme('periodos')">📊 Resumen por período</button>
+        <button class="inf-tab" id="tab-bolsas" onclick="switchInforme('bolsas')">🛍 Informe de bolsas</button>
       </div>
+
+      <!-- Vista 1: Resumen por período (sin cambios) -->
+      <div id="inf-view-periodos">
+        <div class="tbox">
+          <div class="tbox-toolbar">
+            <span class="tbox-title">Informe de Períodos</span>
+            <div class="ms-wrap" id="ms-inf-tipo-wrap">
+              <div class="ms-btn" id="ms-inf-tipo-btn" onclick="toggleMs('ms-inf-tipo')">
+                <span id="ms-inf-tipo-label">Todos los tipos</span><span style="font-size:10px;color:var(--text3)">▼</span>
+              </div>
+              <div class="ms-dropdown" id="ms-inf-tipo-dd">
+                <div class="ms-item"><input type="checkbox" id="msit-all" onchange="msInfSelectAll(this)" checked><label for="msit-all">Todos</label></div>
+                <div class="ms-sep"></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Entrada" onchange="msInfChange()" checked><label>Entrada</label></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Cocina" onchange="msInfChange()" checked><label>Cocina</label></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Panaderia" onchange="msInfChange()" checked><label>Panadería</label></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Salida" onchange="msInfChange()" checked><label>Salida</label></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Ajuste" onchange="msInfChange()" checked><label>Ajuste</label></div>
+                <div class="ms-item"><input type="checkbox" class="ms-inf-tipo-cb" value="Vencidos" onchange="msInfChange()" checked><label>Vencidos</label></div>
+              </div>
+            </div>
+            <input type="date" id="inf-desde" onchange="renderInformePeriodos()" title="Desde">
+            <input type="date" id="inf-hasta" onchange="renderInformePeriodos()" title="Hasta">
+            <input type="text" id="inf-prod-q" placeholder="Buscar producto…" style="width:180px" oninput="renderInformePeriodos()">
+            <button class="btn" onclick="exportInformesCSV()">↓ CSV</button>
+          </div>
+          <div id="inf-periodos-content"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        </div>
+      </div>
+
+      <!-- Vista 2: Informe de bolsas -->
+      <div id="inf-view-bolsas" style="display:none">
+        <div class="tbox">
+          <div class="tbox-toolbar">
+            <span class="tbox-title">Informe de Bolsas</span>
+            <input type="date" id="bolsas-desde" onchange="renderInformeBolsas()" title="Desde">
+            <input type="date" id="bolsas-hasta" onchange="renderInformeBolsas()" title="Hasta">
+            <input type="text" id="bolsas-prod-q" placeholder="Buscar producto…" style="width:180px" oninput="renderInformeBolsas()">
+            <button class="btn" onclick="exportBolsasCSV()">↓ CSV</button>
+          </div>
+          <div id="inf-bolsas-content"><div class="loading"><span class="spinner"></span>Cargando…</div></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ADMIN -->
@@ -1242,11 +1272,25 @@ function renderDashboard(){
 function renderInformes(){
   const hoy=new Date().toISOString().split('T')[0];
   const{desde}=getPeriodoRange(getPeriodoActual());
+  // Período
   const dEl=document.getElementById('inf-desde');
   const hEl=document.getElementById('inf-hasta');
   if(!dEl.value)dEl.value=desde;
   if(!hEl.value)hEl.value=hoy;
+  // Bolsas
+  const bdEl=document.getElementById('bolsas-desde');
+  const bhEl=document.getElementById('bolsas-hasta');
+  if(bdEl&&!bdEl.value)bdEl.value=desde;
+  if(bhEl&&!bhEl.value)bhEl.value=hoy;
   renderInformePeriodos();
+  renderInformeBolsas();
+}
+
+function switchInforme(vista){
+  document.getElementById('inf-view-periodos').style.display=vista==='periodos'?'':'none';
+  document.getElementById('inf-view-bolsas').style.display=vista==='bolsas'?'':'none';
+  document.getElementById('tab-periodos').classList.toggle('active',vista==='periodos');
+  document.getElementById('tab-bolsas').classList.toggle('active',vista==='bolsas');
 }
 function msInfSelectAll(cb){
   document.querySelectorAll('.ms-inf-tipo-cb').forEach(c=>{c.checked=cb.checked;});
@@ -1340,6 +1384,91 @@ function exportInformesCSV(){
   a.href=url;a.download=`informe-${rango}.csv`;
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ── INFORME DE BOLSAS ─────────────────────────────────
+function getBolsasTxns(){
+  const desde=(document.getElementById('bolsas-desde')||{value:''}).value;
+  const hasta=(document.getElementById('bolsas-hasta')||{value:''}).value;
+  const prodQ=(document.getElementById('bolsas-prod-q')||{value:''}).value.toLowerCase();
+  return transacciones.filter(t=>{
+    if(t.tipo!=='Salida')return false;
+    if(desde&&t.fecha<desde)return false;
+    if(hasta&&t.fecha>hasta)return false;
+    if(prodQ&&!t.producto_nombre.toLowerCase().includes(prodQ))return false;
+    return true;
+  });
+}
+
+function renderInformeBolsas(){
+  const el=document.getElementById('inf-bolsas-content');
+  if(!el)return;
+  const txns=getBolsasTxns();
+  if(!txns.length){
+    el.innerHTML='<div style="text-align:center;padding:48px;color:var(--text3)">Sin movimientos de Salida para este período</div>';
+    return;
+  }
+  // Ordenar: observacion ASC (vacíos al final), luego producto ASC
+  const sorted=[...txns].sort((a,b)=>{
+    const oa=a.observaciones||'';
+    const ob=b.observaciones||'';
+    // vacíos al final
+    if(!oa&&ob)return 1;
+    if(oa&&!ob)return -1;
+    const cmp=oa.localeCompare(ob,'es');
+    if(cmp!==0)return cmp;
+    return a.producto_nombre.localeCompare(b.producto_nombre,'es');
+  });
+  // Agrupar por observacion para mostrar sub-encabezados
+  let html='<table><thead><tr><th>Observaciones</th><th>Producto</th><th>Fecha</th><th>Concepto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Precio</th></tr></thead><tbody>';
+  let lastObs=undefined;
+  sorted.forEach(t=>{
+    const obs=t.observaciones||'';
+    if(obs!==lastObs){
+      const label=obs||'<span style="color:var(--text3);font-style:italic">Sin observación</span>';
+      html+=`<tr style="background:var(--surface2)"><td colspan="6" style="padding:7px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-top:1px solid var(--border)">${label}</td></tr>`;
+      lastObs=obs;
+    }
+    html+=`<tr>
+      <td style="color:var(--text3);font-size:12px">${t.observaciones||'—'}</td>
+      <td><strong>${t.producto_nombre}</strong></td>
+      <td style="font-family:monospace;font-size:12px;color:var(--text2)">${t.fecha}</td>
+      <td style="color:var(--text2)">${t.concepto||'—'}</td>
+      <td style="text-align:right;font-weight:500">${fmt(t.cantidad)}</td>
+      <td style="text-align:right;color:var(--text2)">${t.precio?fmtP(t.precio):'—'}</td>
+    </tr>`;
+  });
+  const totalCant=txns.reduce((s,t)=>s+t.cantidad,0);
+  const totalValor=txns.reduce((s,t)=>s+t.cantidad*(t.precio||0),0);
+  html+=`<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
+    <td colspan="4" style="padding:10px 14px;font-size:13px">Total — ${txns.length} movimiento${txns.length!==1?'s':''}</td>
+    <td style="text-align:right;padding:10px 14px">${fmt(totalCant)}</td>
+    <td style="text-align:right;padding:10px 14px">${fmtP(totalValor)}</td>
+  </tr>`;
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+function exportBolsasCSV(){
+  const txns=getBolsasTxns();
+  if(!txns.length){showToast('Sin datos para exportar','err');return;}
+  const sorted=[...txns].sort((a,b)=>{
+    const oa=a.observaciones||'';const ob=b.observaciones||'';
+    if(!oa&&ob)return 1;if(oa&&!ob)return -1;
+    const c=oa.localeCompare(ob,'es');return c!==0?c:a.producto_nombre.localeCompare(b.producto_nombre,'es');
+  });
+  const desde=(document.getElementById('bolsas-desde')||{value:''}).value||'';
+  const hasta=(document.getElementById('bolsas-hasta')||{value:''}).value||'';
+  const rango=desde&&hasta?`${desde}_${hasta}`:desde||hasta||'todo';
+  let csv='Observaciones,Producto,Fecha,Concepto,Cantidad,Precio\n';
+  csv+=sorted.map(t=>`"${t.observaciones||''}","${t.producto_nombre}","${t.fecha}","${t.concepto||''}",${t.cantidad},${t.precio||0}`).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`informe-bolsas-${rango}.csv`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast(`✓ CSV exportado — ${sorted.length} registros`,'ok');
 }
 
 // ── STOCK ─────────────────────────────────────────────
