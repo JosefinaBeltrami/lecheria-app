@@ -1419,31 +1419,51 @@ function renderInformeBolsas(){
     if(cmp!==0)return cmp;
     return a.producto_nombre.localeCompare(b.producto_nombre,'es');
   });
-  // Agrupar por observacion para mostrar sub-encabezados
-  let html='<table><thead><tr><th>Observaciones</th><th>Producto</th><th>Fecha</th><th>Concepto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Precio</th></tr></thead><tbody>';
+  // Agrupar por observacion para mostrar sub-encabezados + subtotales por grupo
+  let html='<table><thead><tr><th>Observaciones</th><th>Producto</th><th>Fecha</th><th>Concepto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Valorizado</th></tr></thead><tbody>';
   let lastObs=undefined;
+  let grpCant=0,grpValor=0,grpCount=0;
+
+  const flushGrupo=()=>{
+    if(lastObs===undefined)return;
+    html+=`<tr style="background:var(--surface2)">
+      <td colspan="3" style="padding:6px 14px;font-size:12px;color:var(--text2);font-style:italic">
+        Subtotal — ${grpCount} movimiento${grpCount!==1?'s':''}
+      </td>
+      <td></td>
+      <td style="text-align:right;padding:6px 14px;font-weight:700;font-size:13px">${fmt(grpCant)}</td>
+      <td style="text-align:right;padding:6px 14px;font-weight:700;font-size:13px">${fmtP(grpValor)}</td>
+    </tr>`;
+    grpCant=0;grpValor=0;grpCount=0;
+  };
+
   sorted.forEach(t=>{
     const obs=t.observaciones||'';
     if(obs!==lastObs){
+      flushGrupo();
       const label=obs||'<span style="color:var(--text3);font-style:italic">Sin observación</span>';
-      html+=`<tr style="background:var(--surface2)"><td colspan="6" style="padding:7px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-top:1px solid var(--border)">${label}</td></tr>`;
+      html+=`<tr style="background:var(--surface2)"><td colspan="6" style="padding:7px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-top:2px solid var(--border)">${label}</td></tr>`;
       lastObs=obs;
     }
+    const valor=t.cantidad*(t.precio||0);
+    grpCant+=t.cantidad;grpValor+=valor;grpCount++;
     html+=`<tr>
       <td style="color:var(--text3);font-size:12px">${t.observaciones||'—'}</td>
       <td><strong>${t.producto_nombre}</strong></td>
       <td style="font-family:monospace;font-size:12px;color:var(--text2)">${t.fecha}</td>
       <td style="color:var(--text2)">${t.concepto||'—'}</td>
       <td style="text-align:right;font-weight:500">${fmt(t.cantidad)}</td>
-      <td style="text-align:right;color:var(--text2)">${t.precio?fmtP(t.precio):'—'}</td>
+      <td style="text-align:right;color:var(--text2)">${t.precio?fmtP(valor):'—'}</td>
     </tr>`;
   });
+  flushGrupo(); // subtotal del último grupo
+
   const totalCant=txns.reduce((s,t)=>s+t.cantidad,0);
   const totalValor=txns.reduce((s,t)=>s+t.cantidad*(t.precio||0),0);
-  html+=`<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
-    <td colspan="4" style="padding:10px 14px;font-size:13px">Total — ${txns.length} movimiento${txns.length!==1?'s':''}</td>
-    <td style="text-align:right;padding:10px 14px">${fmt(totalCant)}</td>
-    <td style="text-align:right;padding:10px 14px">${fmtP(totalValor)}</td>
+  html+=`<tr style="background:var(--accent);color:#fff;font-weight:700;border-top:2px solid var(--border)">
+    <td colspan="4" style="padding:11px 14px;font-size:13px">TOTAL GENERAL — ${txns.length} movimiento${txns.length!==1?'s':''}</td>
+    <td style="text-align:right;padding:11px 14px;font-size:14px">${fmt(totalCant)}</td>
+    <td style="text-align:right;padding:11px 14px;font-size:14px">${fmtP(totalValor)}</td>
   </tr>`;
   html+='</tbody></table>';
   el.innerHTML=html;
