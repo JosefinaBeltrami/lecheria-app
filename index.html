@@ -1481,8 +1481,8 @@ function exportBolsasCSV(){
   const desde=(document.getElementById('bolsas-desde')||{value:''}).value||'';
   const hasta=(document.getElementById('bolsas-hasta')||{value:''}).value||'';
   const rango=desde&&hasta?`${desde}_${hasta}`:desde||hasta||'todo';
-  let csv='Observaciones,Producto,Fecha,Concepto,Cantidad,Precio\n';
-  csv+=sorted.map(t=>`"${t.observaciones||''}","${t.producto_nombre}","${t.fecha}","${t.concepto||''}",${t.cantidad},${t.precio||0}`).join('\n');
+  let csv='Observaciones;Producto;Fecha;Concepto;Cantidad;Precio\n';
+  csv+=sorted.map(t=>`"${t.observaciones||''}";"${t.producto_nombre}";"${t.fecha}";"${t.concepto||''}";${t.cantidad};${t.precio||0}`).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
