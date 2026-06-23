@@ -1377,8 +1377,8 @@ function exportInformesCSV(){
   const desde=document.getElementById('inf-desde').value||'';
   const hasta=document.getElementById('inf-hasta').value||'';
   const rango=desde&&hasta?`${desde}_${hasta}`:desde||hasta||'todo';
-  let csv='Desde,Hasta,Tipo,Producto,Observaciones,Movimientos,Total cantidad,Valorización\n';
-  csv+=rows.map(r=>`"${desde}","${hasta}","${r.tipo}","${r.nombre}","${r.obs}",${r.count},${r.total},${r.valor}`).join('\n');
+  let csv='Desde;Hasta;Tipo;Producto;Observaciones;Movimientos;Total cantidad;Valorización\n';
+  csv+=rows.map(r=>`"${desde}";"${hasta}";"${r.tipo}";"${r.nombre}";"${r.obs}";${r.count};${String(r.total).replace('.',',')};${String(r.valor).replace('.',',')}`).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
