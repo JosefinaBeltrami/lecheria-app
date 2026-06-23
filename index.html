@@ -2534,7 +2534,7 @@ async function eliminarTransaccion(id){
 function exportCSV(type){
   let csv,name;
   if(type==='stock'){
-    csv='Producto,Unidad,Stock,Precio,Valor,Estado\n'+productos.map(p=>{const s=stockStatus(p);return`"${p.nombre}",${p.unidad},${p.stock},${p.precio},${(p.stock*p.precio).toFixed(0)},${s.label}`;}).join('\n');
+    csv='Producto;Unidad;Stock;Precio;Valor;Estado\n'+productos.map(p=>{const s=stockStatus(p);return`"${p.nombre}";${p.unidad};${String(p.stock).replace('.',',')};${String(p.precio).replace('.',',')};${(p.stock*p.precio).toFixed(0).replace('.',',')};${s.label}`;}).join('\n');
     name='stock_lecheria.csv';
   }else if(type==='hist'){
     csv='Fecha;Periodo;Producto;Tipo;Concepto;Cantidad;Precio Orig.;Precio Cierre;Observaciones;Usuario\n'+transacciones.map(t=>`${t.fecha};"${getPeriodoLabel(getPeriodoKey(t.fecha))}";"${t.producto_nombre}";${t.tipo};"${t.concepto||''}";${String(t.cantidad).replace('.',',')};${String(t.precio||0).replace('.',',')};${String(t.precio_cierre||'').replace('.',',')};"${t.observaciones||''}";"${t.usuario_nombre||t.usuario_email||''}"`).join('\n');
