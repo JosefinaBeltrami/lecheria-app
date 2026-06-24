@@ -390,7 +390,7 @@ tr:hover td{background:#FAFAF7;}
           <div class="form-row"><label class="form-label">Producto</label><select id="mov-prod" style="width:100%" onchange="onProdChange()"><option value="">— Seleccioná un producto —</option></select></div>
           <div class="stock-info" id="stock-info" style="display:none">Stock actual: <strong id="stock-info-val">—</strong></div>
           <div class="form-grid">
-            <div class="form-row"><label class="form-label">Cantidad</label><input type="number" id="mov-cant" min="0.1" step="0.5" placeholder="0" style="width:100%"></div>
+            <div class="form-row"><label class="form-label">Cantidad</label><input type="number" id="mov-cant" min="0.1" step="0.5" placeholder="0" style="width:100%"><div id="mov-cant-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:3px">Positivo suma stock · Negativo resta stock</div></div>
             <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="mov-fecha" style="width:100%"></div>
           </div>
           <div class="form-row"><label class="form-label">Concepto / Origen</label>
@@ -1522,6 +1522,10 @@ function setTipo(t,el){
   if(['Cocina','Panaderia','Salida'].includes(t))c.value='Consumo Interno';
   if(t==='Entrada')c.value='Caritas';
   if(t==='Ajuste')c.value='Ajuste de inventario';
+  const cantInput=document.getElementById('mov-cant');
+  const cantHint=document.getElementById('mov-cant-hint');
+  if(t==='Ajuste'){cantInput.min='';cantInput.placeholder='0 (+ suma / − resta)';cantHint.style.display='';}
+  else{cantInput.min='0.1';cantInput.placeholder='0';cantHint.style.display='none';}
 }
 function onProdChange(){
   const id=document.getElementById('mov-prod').value;
@@ -1539,7 +1543,7 @@ async function guardarMovimiento(){
   const precio=parseFloat(document.getElementById('mov-precio').value)||0;
   const obs=document.getElementById('mov-obs').value.trim().slice(0,20);
   if(!prodId){showToast('Seleccioná un producto','err');return;}
-  if(!cant||cant<=0){showToast('Ingresá una cantidad válida','err');return;}
+  if(!cant||cant===0||(tipoMov!=='Ajuste'&&cant<0)){showToast('Ingresá una cantidad válida','err');return;}
   if(!fecha){showToast('Seleccioná una fecha','err');return;}
   const prod=productos.find(p=>p.id===prodId);
   const btn=document.getElementById('btn-guardar');
