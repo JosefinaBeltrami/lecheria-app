@@ -270,8 +270,22 @@ tr:hover td{background:#FAFAF7;}
 .bolsas-obs-header{padding:10px 18px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);background:var(--surface2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
 .bolsas-obs-header:first-child{border-top:none;}
 
+.hamburger{display:none;flex-direction:column;justify-content:center;gap:5px;background:none;border:none;cursor:pointer;padding:6px;border-radius:var(--rs);margin-left:auto;}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s;}
+.hamburger:hover span{background:var(--text);}
+
 @media(max-width:768px){
-  .topbar-nav{display:none;}
+  .hamburger{display:flex;}
+  .topbar-user{margin-left:0;}
+  .topbar-nav{
+    display:none;
+    position:absolute;top:54px;left:0;right:0;z-index:200;
+    flex-direction:column;gap:2px;flex:none;flex-wrap:nowrap;
+    background:var(--surface);border-bottom:2px solid var(--border);
+    padding:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);
+  }
+  .topbar-nav.open{display:flex;}
+  .nav-btn{padding:12px 16px;font-size:15px;text-align:left;border-radius:var(--rs);}
   .stats-row,.periodo-stats{grid-template-columns:1fr 1fr;}
   .app-body{padding:16px;}
   .reg-layout,.cierre-layout{grid-template-columns:1fr;}
@@ -323,6 +337,9 @@ tr:hover td{background:#FAFAF7;}
 <div id="app-screen">
   <div class="topbar">
     <div class="topbar-logo"><span>🌿</span> Lechería</div>
+    <button class="hamburger" id="hamburger-btn" onclick="toggleMobileNav()" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
     <nav class="topbar-nav" id="main-nav">
       <button class="nav-btn active" onclick="goTo('dashboard',this)">Inicio</button>
       <button class="nav-btn" onclick="goTo('stock',this)" id="nav-stock">Stock</button>
@@ -1185,7 +1202,15 @@ function getMsSelected(type){
 }
 
 // ── NAV ───────────────────────────────────────────────
+function toggleMobileNav(){
+  const nav=document.getElementById('main-nav');
+  nav.classList.toggle('open');
+}
+function closeMobileNav(){
+  document.getElementById('main-nav').classList.remove('open');
+}
 function goTo(page,btn){
+  closeMobileNav();
   // Permisos de navegación
   if(page==='movimiento'&&!can('register_mov')){showToast('No tenés permiso para registrar movimientos','err');return;}
   if(page==='admin'&&currentRole!=='admin'){showToast('Acceso solo para administradores','err');return;}
